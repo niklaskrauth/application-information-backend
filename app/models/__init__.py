@@ -24,6 +24,7 @@ class TableRow(BaseModel):
     website: str
     websiteToJobs: str
     hasJob: bool
+    foundAt: Optional[str] = None
     
     name: Optional[str] = None
     salary: Optional[str] = None

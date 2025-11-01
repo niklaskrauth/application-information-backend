@@ -89,6 +89,7 @@ Bitte analysieren Sie diesen Inhalt und extrahieren Sie Informationen für ALLE 
 [
     {{
         "hasJob": true,
+        "foundAt": "Wo die Stelle gefunden wurde (z.B., 'Main page content', 'PDF content', 'Job detail page')" oder null,
         "name": "Stellentitel",
         "salary": "Gehaltsinformationen falls erwähnt" oder null,
         "homeOfficeOption": true/false/null (ob Home Office oder Remote-Arbeit erwähnt wird),
@@ -101,10 +102,11 @@ Bitte analysieren Sie diesen Inhalt und extrahieren Sie Informationen für ALLE 
 
 Wichtig:
 - Extrahieren Sie ALLE Stellen, die auf der Seite gefunden werden, nicht nur die erste
-- Wenn KEINE Stellen gefunden werden, geben Sie zurück: [{{"hasJob": false, "comments": "Keine offenen Stellen gefunden"}}]
+- Wenn KEINE Stellen gefunden werden, geben Sie zurück: [{{"hasJob": false, "foundAt": null, "comments": "Keine offenen Stellen gefunden"}}]
 - IGNORIEREN Sie Stellen, die "{excluded_terms}" im Titel oder in der Beschäftigungsart enthalten
 - Jede Stelle sollte ein separates Objekt im Array sein
 - Seien Sie präzise in Ihren Extraktionen
+- Für "foundAt": Schauen Sie sich die Abschnittsüberschriften an (z.B., "Main page content:", "PDF content from", "Job detail page") und verwenden Sie eine Vereinfachte Version wie "Hauptseite", "PDF Dokument", oder "Detail Seite"
 - Geben Sie NUR ein gültiges JSON-Array zurück, keinen zusätzlichen Text
 - Alle Textfelder sollten auf Deutsch sein
 """

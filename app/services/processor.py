@@ -1,5 +1,6 @@
 import logging
 from typing import List
+import time
 from app.models import WebsiteEntry, TableRow, Table
 from app.services.excel_reader import ExcelReader
 from app.services.web_scraper import WebScraper
@@ -26,17 +27,21 @@ class JobProcessor:
             Table object with job information rows (multiple rows per company if multiple jobs exist)
         """
         logger.info("Starting job processing")
+        start_time = time.time()
         
         # Read entries from Excel
         entries = self.excel_reader.read_entries()
         logger.info(f"Found {len(entries)} entries to process")
         
         rows = []
-        for entry in entries:
+        for idx, entry in enumerate(entries, 1):
+            entry_start = time.time()
             try:
                 # _process_single_entry now returns a list of rows
                 entry_rows = self._process_single_entry(entry)
                 rows.extend(entry_rows)
+                entry_time = time.time() - entry_start
+                logger.info(f"Entry {idx}/{len(entries)} ({entry.location}) completed in {entry_time:.2f}s")
             except Exception as e:
                 logger.error(f"Error processing entry {entry.location}: {str(e)}")
                 # Create a basic row with error info
@@ -49,7 +54,8 @@ class JobProcessor:
                 )
                 rows.append(row)
         
-        logger.info(f"Completed processing - found {len(rows)} total job entries")
+        total_time = time.time() - start_time
+        logger.info(f"Completed processing - found {len(rows)} total job entries in {total_time:.2f}s")
         return Table(rows=rows)
     
     def _process_single_entry(self, entry: WebsiteEntry) -> List[TableRow]:
@@ -139,6 +145,7 @@ class JobProcessor:
                 website=entry.website,
                 websiteToJobs=entry.websiteToJobs or entry.website,
                 hasJob=job_info.get('hasJob', False),
+                foundAt=job_info.get('foundAt'),
                 name=job_info.get('name'),
                 salary=job_info.get('salary'),
                 homeOfficeOption=job_info.get('homeOfficeOption'),

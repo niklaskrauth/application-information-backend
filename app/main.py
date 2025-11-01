@@ -64,6 +64,9 @@ async def get_jobs():
     Returns:
         Table with rows containing job information for each company
     """
+    import time
+    start_time = time.time()
+    
     try:
         # Check if Excel file exists
         logger.info(f"Überprüfe, ob die Datei existiert: {settings.EXCEL_FILE_PATH}")
@@ -86,7 +89,8 @@ async def get_jobs():
         
         table = processor.process_all_jobs()
         
-        logger.info(f"Successfully processed {len(table.rows)} companies")
+        elapsed_time = time.time() - start_time
+        logger.info(f"Successfully processed {len(table.rows)} job entries in {elapsed_time:.2f} seconds")
         return table
         
     except FileNotFoundError as e:

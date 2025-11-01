@@ -155,6 +155,7 @@ This endpoint:
       "website": "https://www.example-company.com",
       "websiteToJobs": "https://www.example-company.com/careers",
       "hasJob": true,
+      "foundAt": "Main Page",
       "name": "Senior Software Engineer",
       "salary": "€70,000 - €90,000",
       "homeOfficeOption": true,
@@ -168,6 +169,7 @@ This endpoint:
       "website": "https://www.example-company.com",
       "websiteToJobs": "https://www.example-company.com/careers",
       "hasJob": true,
+      "foundAt": "PDF Document",
       "name": "Junior Developer",
       "salary": "€45,000 - €55,000",
       "homeOfficeOption": true,
@@ -181,6 +183,7 @@ This endpoint:
       "website": "https://www.another-company.com",
       "websiteToJobs": "https://www.another-company.com/jobs",
       "hasJob": false,
+      "foundAt": null,
       "name": null,
       "salary": null,
       "homeOfficeOption": null,
@@ -204,6 +207,7 @@ interface TableRow {
     website: string;
     websiteToJobs: string;
     hasJob: boolean;
+    foundAt?: string;
     name?: string;
     salary?: string;
     homeOfficeOption?: boolean;
