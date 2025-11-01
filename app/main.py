@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
+import time
 from app.config import settings
 from app.models import Table
 from app.services.processor import JobProcessor
@@ -64,7 +65,6 @@ async def get_jobs():
     Returns:
         Table with rows containing job information for each company
     """
-    import time
     start_time = time.time()
     
     try:

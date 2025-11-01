@@ -89,7 +89,7 @@ Bitte analysieren Sie diesen Inhalt und extrahieren Sie Informationen für ALLE 
 [
     {{
         "hasJob": true,
-        "foundAt": "Wo die Stelle gefunden wurde (z.B., 'Main page content', 'PDF content', 'Job detail page')" oder null,
+        "foundAt": "Wo die Stelle gefunden wurde (z.B., 'Hauptseite', 'PDF Dokument', 'Detail Seite')" oder null,
         "name": "Stellentitel",
         "salary": "Gehaltsinformationen falls erwähnt" oder null,
         "homeOfficeOption": true/false/null (ob Home Office oder Remote-Arbeit erwähnt wird),
