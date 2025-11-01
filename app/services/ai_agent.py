@@ -7,6 +7,13 @@ import time
 
 logger = logging.getLogger(__name__)
 
+# Job types to exclude from results (trainee, internship, student positions)
+EXCLUDED_JOB_TYPES = [
+    "Auszubildung", "Auszubildende", "Auszubildender",
+    "Praktikum", "Praktikant", "Praktikanten",
+    "Studium", "Student", "Studenten"
+]
+
 
 class AIAgent:
     """LangChain AI Agent using Groq for analyzing job information from websites"""
@@ -65,36 +72,41 @@ class AIAgent:
             # Apply rate limiting
             self._rate_limit()
             
+            # Build exclusion list for prompt
+            excluded_terms = '", "'.join(EXCLUDED_JOB_TYPES)
+            
             prompt = f"""
-You are analyzing a company's job page to extract information about ALL available positions.
+Sie analysieren eine Unternehmenswebseite, um Informationen über ALLE verfügbaren Stellen zu extrahieren.
 
-Location: {location}
-Company Website: {website}
-Jobs Page: {website_to_jobs}
+Standort: {location}
+Unternehmenswebseite: {website}
+Stellenseite: {website_to_jobs}
 
-Content from jobs page:
+Inhalt der Stellenseite:
 {page_content[:self.max_content_length]}
 
-Please analyze this content and extract information for ALL job positions found. Return a JSON array where each element represents one job:
+Bitte analysieren Sie diesen Inhalt und extrahieren Sie Informationen für ALLE gefundenen Stellenangebote. Geben Sie ein JSON-Array zurück, wobei jedes Element eine Stelle repräsentiert:
 [
     {{
         "hasJob": true,
-        "name": "job title",
-        "salary": "salary information if mentioned" or null,
-        "homeOfficeOption": true/false/null (whether home office or remote work is mentioned),
-        "period": "work period/hours if mentioned (e.g., 'Full-time', 'Part-time', '40 hours/week')" or null,
-        "employmentType": "type of employment if mentioned (e.g., 'Permanent', 'Contract', 'Internship')" or null,
-        "comments": "any additional relevant information about this specific job" or null
+        "name": "Stellentitel",
+        "salary": "Gehaltsinformationen falls erwähnt" oder null,
+        "homeOfficeOption": true/false/null (ob Home Office oder Remote-Arbeit erwähnt wird),
+        "period": "Arbeitszeit falls erwähnt (z.B., 'Vollzeit', 'Teilzeit', '40 Stunden/Woche')" oder null,
+        "employmentType": "Beschäftigungsart falls erwähnt (z.B., 'Unbefristet', 'Befristet', 'Festanstellung')" oder null,
+        "comments": "zusätzliche relevante Informationen zu dieser spezifischen Stelle" oder null
     }},
-    ... (one entry for each job found)
+    ... (ein Eintrag für jede gefundene Stelle)
 ]
 
-Important:
-- Extract ALL jobs found on the page, not just the first one
-- If NO jobs are found, return: [{{"hasJob": false, "comments": "No open positions found"}}]
-- Each job should be a separate object in the array
-- Be concise in your extractions
-- Return ONLY valid JSON array, no additional text
+Wichtig:
+- Extrahieren Sie ALLE Stellen, die auf der Seite gefunden werden, nicht nur die erste
+- Wenn KEINE Stellen gefunden werden, geben Sie zurück: [{{"hasJob": false, "comments": "Keine offenen Stellen gefunden"}}]
+- IGNORIEREN Sie Stellen, die "{excluded_terms}" im Titel oder in der Beschäftigungsart enthalten
+- Jede Stelle sollte ein separates Objekt im Array sein
+- Seien Sie präzise in Ihren Extraktionen
+- Geben Sie NUR ein gültiges JSON-Array zurück, keinen zusätzlichen Text
+- Alle Textfelder sollten auf Deutsch sein
 """
             
             response = self.llm.invoke(prompt)
