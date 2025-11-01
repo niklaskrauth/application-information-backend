@@ -1,5 +1,6 @@
 import logging
 from typing import List
+from datetime import datetime, date
 from app.models import WebsiteEntry, TableRow, Table
 from app.services.excel_reader import ExcelReader
 from app.services.web_scraper import WebScraper
@@ -17,6 +18,34 @@ class JobProcessor:
         self.web_scraper = WebScraper(timeout=timeout)
         self.content_extractor = ContentExtractor(timeout=timeout)
         self.ai_agent = AIAgent()
+    
+    def _parse_date(self, date_str: str) -> date:
+        """
+        Parse a date string in various formats to a date object.
+        
+        Args:
+            date_str: Date string in format YYYY-MM-DD or similar
+            
+        Returns:
+            date object or None if parsing fails
+        """
+        if not date_str:
+            return None
+        
+        try:
+            # Try ISO format first (YYYY-MM-DD)
+            return datetime.strptime(date_str, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            try:
+                # Try DD.MM.YYYY format
+                return datetime.strptime(date_str, "%d.%m.%Y").date()
+            except (ValueError, TypeError):
+                try:
+                    # Try DD/MM/YYYY format
+                    return datetime.strptime(date_str, "%d/%m/%Y").date()
+                except (ValueError, TypeError):
+                    logger.warning(f"Could not parse date string: {date_str}")
+                    return None
     
     def process_all_jobs(self) -> Table:
         """
@@ -134,6 +163,12 @@ class JobProcessor:
         # Create TableRow for each job found
         rows = []
         for job_info in jobs_info_list:
+            # Parse applicationDate if present
+            application_date = None
+            date_str = job_info.get('applicationDate')
+            if date_str:
+                application_date = self._parse_date(date_str)
+            
             row = TableRow(
                 location=entry.location,
                 website=entry.website,
@@ -144,6 +179,7 @@ class JobProcessor:
                 homeOfficeOption=job_info.get('homeOfficeOption'),
                 period=job_info.get('period'),
                 employmentType=job_info.get('employmentType'),
+                applicationDate=application_date,
                 comments=job_info.get('comments')
             )
             rows.append(row)

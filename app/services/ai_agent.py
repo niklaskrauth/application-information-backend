@@ -9,9 +9,28 @@ logger = logging.getLogger(__name__)
 
 # Job types to exclude from results (trainee, internship, student positions)
 EXCLUDED_JOB_TYPES = [
-    "Auszubildung", "Auszubildende", "Auszubildender",
-    "Praktikum", "Praktikant", "Praktikanten",
-    "Studium", "Student", "Studenten"
+    "Auszubildung", "Auszubildende", "Auszubildender", "Azubi",
+    "Praktikum", "Praktikant", "Praktikanten", "Praktikantin",
+    "Studium", "Student", "Studenten", "Studentin", "Studentische"
+]
+
+# Administrative job types to include (whitelist)
+INCLUDED_JOB_TYPES = [
+    "Verwaltung", "Verwaltungsfachangestellte", "Verwaltungsmitarbeiter",
+    "Sachbearbeiter", "Sachbearbeiterin", "Sachbearbeitung",
+    "Sekretariatskraft", "Sekretariat", "Sekretär", "Sekretärin",
+    "Bürokraft", "Bürokaufmann", "Bürokauffrau", "Büromitarbeiter",
+    "Verwaltungsangestellte", "Verwaltungsassistent",
+    "Büroassistent", "Büroassistenz",
+    "Kaufmännisch", "Kaufmann", "Kauffrau",
+    "Assistenz", "Assistent"
+]
+
+# Qualification terms that indicate positions requiring higher education
+EXCLUDED_QUALIFICATIONS = [
+    "Bachelor", "Master", "Diplom", "Studium", "Hochschulabschluss",
+    "Universitätsabschluss", "Akademiker", "B.Sc", "M.Sc", "B.A", "M.A",
+    "Fachhochschule", "Universität"
 ]
 
 
@@ -72,11 +91,13 @@ class AIAgent:
             # Apply rate limiting
             self._rate_limit()
             
-            # Build exclusion list for prompt
+            # Build exclusion and inclusion lists for prompt
             excluded_terms = '", "'.join(EXCLUDED_JOB_TYPES)
+            included_terms = '", "'.join(INCLUDED_JOB_TYPES)
+            excluded_qualifications = '", "'.join(EXCLUDED_QUALIFICATIONS)
             
             prompt = f"""
-Sie analysieren eine Unternehmenswebseite, um Informationen über ALLE verfügbaren Stellen zu extrahieren.
+Sie analysieren eine Unternehmenswebseite, um Informationen über ALLE verfügbaren Verwaltungsstellen zu extrahieren.
 
 Standort: {location}
 Unternehmenswebseite: {website}
@@ -94,15 +115,27 @@ Bitte analysieren Sie diesen Inhalt und extrahieren Sie Informationen für ALLE 
         "homeOfficeOption": true/false/null (ob Home Office oder Remote-Arbeit erwähnt wird),
         "period": "Arbeitszeit falls erwähnt (z.B., 'Vollzeit', 'Teilzeit', '40 Stunden/Woche')" oder null,
         "employmentType": "Beschäftigungsart falls erwähnt (z.B., 'Unbefristet', 'Befristet', 'Festanstellung')" oder null,
-        "comments": "zusätzliche relevante Informationen zu dieser spezifischen Stelle" oder null
+        "applicationDate": "JJJJ-MM-TT Format (z.B., '2025-12-31') falls eine Bewerbungsfrist oder ein Datum erwähnt wird" oder null,
+        "comments": "zusätzliche relevante Informationen zu dieser spezifischen Stelle (KEINE Datumsangaben hier)" oder null
     }},
     ... (ein Eintrag für jede gefundene Stelle)
 ]
 
-Wichtig:
-- Extrahieren Sie ALLE Stellen, die auf der Seite gefunden werden, nicht nur die erste
-- Wenn KEINE Stellen gefunden werden, geben Sie zurück: [{{"hasJob": false, "comments": "Keine offenen Stellen gefunden"}}]
-- IGNORIEREN Sie Stellen, die "{excluded_terms}" im Titel oder in der Beschäftigungsart enthalten
+WICHTIGE FILTERKRITERIEN - Eine Stelle wird NUR extrahiert, wenn:
+1. Sie ist eine Verwaltungs- oder Bürostelle (z.B., "{included_terms}")
+2. Sie enthält NICHT die Begriffe: "{excluded_terms}"
+3. Sie erfordert KEINE höhere Ausbildung wie: "{excluded_qualifications}"
+4. Sie ist für Personen mit Berufsausbildung oder vergleichbarer Qualifikation geeignet
+
+WICHTIG zum Datum (applicationDate):
+- Wenn eine Bewerbungsfrist erwähnt wird (z.B., "Bewerbung bis 31.12.2025"), extrahieren Sie das Datum im Format JJJJ-MM-TT
+- Wenn "bis Ende des Monats" oder ähnlich steht, berechnen Sie das konkrete Datum
+- Fügen Sie Datumsangaben NIEMALS in das "comments" Feld ein
+- Nur wenn kein Datum vorhanden ist, setzen Sie applicationDate auf null
+
+Weitere wichtige Regeln:
+- Extrahieren Sie ALLE passenden Stellen, die auf der Seite gefunden werden
+- Wenn KEINE passenden Stellen gefunden werden, geben Sie zurück: [{{"hasJob": false, "comments": "Keine passenden Verwaltungsstellen gefunden"}}]
 - Jede Stelle sollte ein separates Objekt im Array sein
 - Seien Sie präzise in Ihren Extraktionen
 - Geben Sie NUR ein gültiges JSON-Array zurück, keinen zusätzlichen Text
