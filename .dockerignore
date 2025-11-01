@@ -1,0 +1,48 @@
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Environment variables
+.env
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation (not needed in container)
+*.md
+!README.md
+
+# Test files
+tests/
+test_*.py
+
+# Development files
+example_usage.py
+validate.py
+
+# Data (mount as volume instead)
+data/
+*.xlsx
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
