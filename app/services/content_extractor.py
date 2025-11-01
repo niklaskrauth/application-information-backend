@@ -3,14 +3,12 @@ import io
 import logging
 from typing import Optional
 from pypdf import PdfReader
-from PIL import Image
-import pytesseract
 
 logger = logging.getLogger(__name__)
 
 
 class ContentExtractor:
-    """Service for extracting content from PDFs and images"""
+    """Service for extracting content from PDFs"""
     
     def __init__(self, timeout: int = 30):
         self.timeout = timeout
@@ -44,30 +42,4 @@ class ContentExtractor:
             
         except Exception as e:
             logger.error(f"Error extracting PDF content from {url}: {str(e)}")
-            return None
-    
-    def extract_image_content(self, url: str) -> Optional[str]:
-        """
-        Extract text from an image using OCR.
-        
-        Args:
-            url: URL to the image file
-            
-        Returns:
-            Extracted text content or None if extraction fails
-        """
-        try:
-            response = requests.get(url, headers=self.headers, timeout=self.timeout)
-            response.raise_for_status()
-            
-            image = Image.open(io.BytesIO(response.content))
-            
-            # Perform OCR
-            text = pytesseract.image_to_string(image)
-            
-            logger.info(f"Successfully extracted text from image: {url}")
-            return text.strip()
-            
-        except Exception as e:
-            logger.error(f"Error extracting image content from {url}: {str(e)}")
             return None

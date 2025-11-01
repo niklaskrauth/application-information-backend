@@ -11,6 +11,13 @@ class WebsiteEntry(BaseModel):
     websiteToJobs: Optional[str] = None
 
 
+class ExtractedLink(BaseModel):
+    """Model for extracted links from a website"""
+    url: str
+    link_type: str  # 'webpage', 'pdf', 'image', 'other'
+    title: Optional[str] = None
+
+
 class TableRow(BaseModel):
     """Model for job application row matching frontend interface"""
     location: str
