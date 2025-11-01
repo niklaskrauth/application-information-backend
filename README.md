@@ -1,28 +1,25 @@
 # Application Information Backend
 
-A Python backend using LangChain AI/agent for extracting information from website applications. The system reads website URLs from an Excel sheet, scrapes the websites, extracts content from linked PDFs and images, and provides structured JSON data for frontend consumption.
+A Python backend using LangChain and Groq AI for extracting job information from company websites. The system reads company locations from an Excel sheet, scrapes their job pages, and uses AI to extract structured job information for frontend consumption.
 
 ## Features
 
-- **Excel Integration**: Read website application data from Excel sheets
-- **Web Scraping**: Automatically scrape websites and extract links
-- **PDF Processing**: Extract text content from PDF documents
-- **Image OCR**: Extract text from images using OCR (Optical Character Recognition)
-- **AI Analysis**: Use LangChain and OpenAI to analyze and summarize extracted content
-- **REST API**: FastAPI-based REST API for frontend integration
-- **JSON Output**: Structured JSON responses for easy frontend consumption
+- **Excel Integration**: Read company data from Excel sheets
+- **Web Scraping**: Automatically scrape company job pages
+- **AI Job Extraction**: Use LangChain and Groq (LLaMA 3.1 70B) to analyze and extract job details
+- **REST API**: FastAPI-based REST API with single GET endpoint
+- **Structured JSON Output**: Returns job data matching frontend TypeScript interfaces
 
 ## Architecture
 
 ```
-Excel File → Excel Reader → Website Scraper → Content Extractors (PDF/Image) → AI Agent → JSON Response
+Excel File (src/data/excel.xls) → Excel Reader → Website Scraper → Groq AI Agent → Table JSON Response
 ```
 
 ## Requirements
 
 - Python 3.8+
-- OpenAI API Key (for AI-powered analysis)
-- Tesseract OCR (for image text extraction)
+- Groq API Key (for AI-powered job extraction)
 
 ## Installation
 
@@ -46,23 +43,8 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4. Install Tesseract OCR (for image text extraction)
+### 4. Configure environment variables
 
-**Ubuntu/Debian:**
-```bash
-sudo apt-get update
-sudo apt-get install tesseract-ocr
-```
-
-**macOS:**
-```bash
-brew install tesseract
-```
-
-**Windows:**
-Download and install from: https://github.com/UB-Mannheim/tesseract/wiki
-
-### 5. Configure environment variables
 
 Copy the example environment file and update with your settings:
 
@@ -70,18 +52,20 @@ Copy the example environment file and update with your settings:
 cp .env.example .env
 ```
 
-Edit `.env` and add your OpenAI API key:
+Edit `.env` and add your Groq API key:
 ```
-OPENAI_API_KEY=your_actual_openai_api_key_here
+GROQ_API_KEY=your_actual_groq_api_key_here
 ```
 
-### 6. Create sample Excel file
+You can get a free Groq API key at: https://console.groq.com/
+
+### 5. Create sample Excel file
 
 ```bash
 python create_sample_excel.py
 ```
 
-This creates a sample `data/applications.xlsx` file with example data.
+This creates a sample `src/data/excel.xls` file with example company data.
 
 ### Alternative: Using Docker
 
@@ -105,26 +89,26 @@ Or build manually:
 docker build -t application-info-backend .
 
 # Run the container
-docker run -p 8000:8000 -v $(pwd)/data:/app/data -e OPENAI_API_KEY=your_key application-info-backend
+docker run -p 8000:8000 -v $(pwd)/src/data:/app/src/data -e GROQ_API_KEY=your_key application-info-backend
 ```
 
 ## Excel File Format
 
-The Excel file should have the following columns:
+The Excel file should be located at `src/data/excel.xls` and have the following columns:
 
 | Column | Type | Required | Description |
 |--------|------|----------|-------------|
-| id | Integer | Yes | Unique identifier for the application |
-| name | String | Yes | Name of the application/website |
-| url | String | Yes | Full URL of the website (must include http:// or https://) |
-| description | String | No | Optional description of the application |
+| id | Integer | Yes | Unique identifier for the company |
+| location | String | Yes | Company location (e.g., "Berlin, Germany") |
+| website | String | Yes | Main company website URL |
+| websiteToJobs | String | No | Direct URL to jobs/careers page (if different from main website) |
 
 Example:
 ```
-id  | name            | url                        | description
-----|-----------------|----------------------------|---------------------------
-1   | Example Company | https://www.example.com    | A sample company website
-2   | Tech Startup    | https://www.github.com     | Open source platform
+id  | location         | website                        | websiteToJobs
+----|------------------|--------------------------------|----------------------------------
+1   | Berlin, Germany  | https://www.example.com        | https://www.example.com/careers
+2   | Munich, Germany  | https://www.another.com        | https://www.another.com/jobs
 ```
 
 ## Usage
@@ -146,113 +130,99 @@ python main.py
 
 The server will start at `http://localhost:8000`
 
-### API Endpoints
+### API Endpoint
 
-#### 1. Health Check
-```bash
-GET /health
+#### GET /jobs
+
+Process all companies from the Excel file and extract job information.
+
+This endpoint:
+- Reads all company entries from `src/data/excel.xls`
+- Scrapes each company's jobs page (websiteToJobs or website)
+- Uses Groq AI to analyze and extract job details
+- Returns structured job data matching the frontend interface
+
+**Response Format:**
+```json
+{
+  "rows": [
+    {
+      "location": "Berlin, Germany",
+      "website": "https://www.example-company.com",
+      "websiteToJobs": "https://www.example-company.com/careers",
+      "hasJob": true,
+      "name": "Senior Software Engineer",
+      "salary": "€70,000 - €90,000",
+      "homeOfficeOption": true,
+      "period": "Full-time",
+      "employmentType": "Permanent",
+      "applicationDate": null,
+      "comments": "Remote work available, flexible hours"
+    },
+    {
+      "location": "Munich, Germany",
+      "website": "https://www.another-company.com",
+      "websiteToJobs": "https://www.another-company.com/jobs",
+      "hasJob": false,
+      "name": null,
+      "salary": null,
+      "homeOfficeOption": null,
+      "period": null,
+      "employmentType": null,
+      "applicationDate": null,
+      "comments": "No open positions at this time"
+    }
+  ]
+}
 ```
 
-Check if the API is running and OpenAI is configured.
+**TypeScript Interface:**
+```typescript
+interface Table {
+    rows: TableRow[];
+}
+
+interface TableRow {
+    location: string;
+    website: string;
+    websiteToJobs: string;
+    hasJob: boolean;
+    name?: string;
+    salary?: string;
+    homeOfficeOption?: boolean;
+    period?: string;
+    employmentType?: string;
+    applicationDate?: Date;
+    comments?: string;
+}
+```
+
+**Example Request:**
+```bash
+curl http://localhost:8000/jobs
+```
+
+**Example with JavaScript:**
+```javascript
+fetch('http://localhost:8000/jobs')
+  .then(response => response.json())
+  .then(data => {
+    console.log(`Found ${data.rows.length} companies`);
+    data.rows.forEach(row => {
+      console.log(`${row.location}: ${row.hasJob ? 'Has jobs!' : 'No jobs'}`);
+    });
+  });
+```
+
+#### GET /health
+
+Check if the API is running and Groq is configured.
 
 **Response:**
 ```json
 {
   "status": "healthy",
-  "openai_configured": true
-}
-```
-
-#### 2. Get Applications List
-```bash
-GET /applications
-```
-
-Retrieve the list of applications from the Excel file without processing.
-
-**Response:**
-```json
-{
-  "success": true,
-  "count": 3,
-  "applications": [
-    {
-      "id": 1,
-      "name": "Example Company",
-      "url": "https://www.example.com",
-      "description": "A sample company website"
-    }
-  ]
-}
-```
-
-#### 3. Process Applications
-```bash
-POST /process
-```
-
-Process all applications from the Excel file. This endpoint:
-- Reads all entries from the Excel file
-- Scrapes each website
-- Extracts content from PDFs and images
-- Uses AI to analyze and summarize the information
-- Returns structured JSON data
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Successfully processed 3 applications",
-  "data": [
-    {
-      "id": 1,
-      "name": "Example Company",
-      "main_url": "https://www.example.com",
-      "description": "A sample company website",
-      "extracted_links": [
-        {
-          "url": "https://www.example.com/about",
-          "link_type": "webpage",
-          "title": "About Us"
-        },
-        {
-          "url": "https://www.example.com/brochure.pdf",
-          "link_type": "pdf",
-          "title": "Company Brochure"
-        }
-      ],
-      "extracted_contents": [
-        {
-          "url": "https://www.example.com",
-          "content_type": "webpage",
-          "text_content": "...",
-          "metadata": {"is_main_page": true},
-          "extracted_at": "2025-11-01T11:37:13.317Z"
-        }
-      ],
-      "summary": "AI-generated summary of the application...",
-      "processed_at": "2025-11-01T11:37:13.317Z"
-    }
-  ]
-}
-```
-
-#### 4. Upload Excel File
-```bash
-POST /upload-excel
-Content-Type: multipart/form-data
-
-file: <excel_file>
-```
-
-Upload a new Excel file with website applications.
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Excel file uploaded successfully",
-  "file_path": "data/applications.xlsx"
+  "groq_configured": true
 }
 ```
 
@@ -272,16 +242,16 @@ application-information-backend/
 │   ├── main.py                 # FastAPI application entry point
 │   ├── config.py               # Configuration and settings
 │   ├── models/
-│   │   └── __init__.py         # Pydantic models for data structures
+│   │   └── __init__.py         # Pydantic models (Table, TableRow)
 │   ├── services/
 │   │   ├── excel_reader.py     # Excel file reading service
 │   │   ├── web_scraper.py      # Website scraping service
-│   │   ├── content_extractor.py # PDF and image content extraction
-│   │   ├── ai_agent.py         # LangChain AI agent for analysis
-│   │   └── processor.py        # Main orchestration service
+│   │   ├── ai_agent.py         # Groq AI agent for job extraction
+│   │   └── processor.py        # Job processing orchestration
 │   └── utils/
-├── data/
-│   └── applications.xlsx       # Excel file with website data
+├── src/
+│   └── data/
+│       └── excel.xls           # Excel file with company data
 ├── .env                        # Environment variables (not in git)
 ├── .env.example                # Example environment file
 ├── .gitignore                  # Git ignore file
@@ -292,26 +262,21 @@ application-information-backend/
 
 ## How It Works
 
-1. **Excel Reading**: The system reads website entries from an Excel file using `ExcelReader`
-2. **Web Scraping**: For each entry, `WebScraper` visits the website and extracts:
-   - Main page text content
-   - All links (webpages, PDFs, images)
-3. **Content Extraction**: 
-   - `ContentExtractor` processes PDFs to extract text
-   - OCR is used to extract text from images
-4. **AI Analysis**: `AIAgent` uses LangChain and OpenAI to:
-   - Summarize extracted content
-   - Provide insights about the application
-   - Generate comprehensive analysis
-5. **JSON Response**: All data is structured into JSON format for frontend consumption
+1. **Excel Reading**: The system reads company entries from `src/data/excel.xls` using `ExcelReader`
+2. **Web Scraping**: For each entry, `WebScraper` visits the jobs page (websiteToJobs or website) and extracts text content
+3. **AI Analysis**: `AIAgent` uses LangChain and Groq (LLaMA 3.1 70B) to:
+   - Analyze job page content
+   - Extract structured job information (title, salary, home office, etc.)
+   - Determine if positions are available
+4. **JSON Response**: All data is structured into a Table with TableRow objects matching the frontend interface
 
 ## Configuration
 
 All configuration is managed through environment variables (`.env` file):
 
 ```bash
-# OpenAI API Configuration
-OPENAI_API_KEY=your_openai_api_key_here
+# Groq API Configuration
+GROQ_API_KEY=your_groq_api_key_here
 
 # Application Configuration
 APP_HOST=0.0.0.0
@@ -319,7 +284,7 @@ APP_PORT=8000
 DEBUG_MODE=True
 
 # Excel File Path
-EXCEL_FILE_PATH=data/applications.xlsx
+EXCEL_FILE_PATH=src/data/excel.xls
 
 # Processing Configuration
 MAX_CONCURRENT_REQUESTS=5
@@ -355,30 +320,32 @@ flake8 app/
 ## Limitations and Considerations
 
 - **Rate Limiting**: Be mindful of rate limits when scraping websites
-- **PDF/Image Processing**: Limited to first 5 PDFs and 3 images per website to manage processing time
-- **Content Length**: AI summaries are limited to the first 5000 characters of content
-- **OCR Accuracy**: Image text extraction depends on image quality and Tesseract configuration
-- **API Costs**: OpenAI API usage incurs costs based on token usage
+- **Processing Time**: Each company entry requires scraping and AI analysis (typically 5-15 seconds per company)
+- **API Costs**: Groq API has generous free tier, but usage is rate-limited
+- **Content Accuracy**: AI extraction depends on the structure and clarity of the job page content
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **"OpenAI API key not set"**
-   - Ensure you've set `OPENAI_API_KEY` in your `.env` file
+1. **"Groq API key not set"**
+   - Ensure you've set `GROQ_API_KEY` in your `.env` file
+   - Get a free API key at https://console.groq.com/
    - Restart the server after updating `.env`
 
 2. **"Excel file not found"**
    - Run `python create_sample_excel.py` to create the sample file
-   - Ensure the path in `.env` is correct
+   - Ensure the file is at `src/data/excel.xls`
+   - Check the path in `.env` is correct
 
-3. **Tesseract not found**
-   - Install Tesseract OCR for your system
-   - Ensure it's in your system PATH
-
-4. **Import errors**
+3. **Import errors**
    - Make sure all dependencies are installed: `pip install -r requirements.txt`
    - Activate your virtual environment
+
+4. **Slow processing**
+   - Consider reducing the number of companies in the Excel file
+   - Check your internet connection
+   - Groq API rate limits may cause delays
 
 ## License
 
