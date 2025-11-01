@@ -134,6 +134,16 @@ class JobProcessor:
         # Create TableRow for each job found
         rows = []
         for job_info in jobs_info_list:
+            # Parse applicationType if it's a string in YYYY-MM-DD format
+            application_type = job_info.get('applicationType')
+            if application_type and isinstance(application_type, str):
+                from datetime import datetime
+                try:
+                    application_type = datetime.strptime(application_type, '%Y-%m-%d').date()
+                except (ValueError, TypeError):
+                    logger.warning(f"Could not parse applicationType date: {application_type}")
+                    application_type = None
+            
             row = TableRow(
                 location=entry.location,
                 website=entry.website,
@@ -144,6 +154,7 @@ class JobProcessor:
                 homeOfficeOption=job_info.get('homeOfficeOption'),
                 period=job_info.get('period'),
                 employmentType=job_info.get('employmentType'),
+                applicationType=application_type,
                 comments=job_info.get('comments')
             )
             rows.append(row)
