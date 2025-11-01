@@ -140,7 +140,11 @@ This endpoint:
 - Reads all company entries from `src/data/excel.xls`
 - Scrapes each company's jobs page (websiteToJobs or website)
 - Uses Groq AI to analyze and extract job details
+- **Extracts ALL jobs found on each company's page** (multiple jobs per company)
 - Returns structured job data matching the frontend interface
+- **Implements rate limiting** to avoid API throttling
+
+**Note:** If a company has multiple job openings, each job will be returned as a separate row in the response with the same `location`, `website`, and `websiteToJobs` fields.
 
 **Response Format:**
 ```json
@@ -158,6 +162,19 @@ This endpoint:
       "employmentType": "Permanent",
       "applicationDate": null,
       "comments": "Remote work available, flexible hours"
+    },
+    {
+      "location": "Berlin, Germany",
+      "website": "https://www.example-company.com",
+      "websiteToJobs": "https://www.example-company.com/careers",
+      "hasJob": true,
+      "name": "Junior Developer",
+      "salary": "€45,000 - €55,000",
+      "homeOfficeOption": true,
+      "period": "Full-time",
+      "employmentType": "Permanent",
+      "applicationDate": null,
+      "comments": "Great for entry-level candidates"
     },
     {
       "location": "Munich, Germany",
@@ -266,9 +283,11 @@ application-information-backend/
 2. **Web Scraping**: For each entry, `WebScraper` visits the jobs page (websiteToJobs or website) and extracts text content
 3. **AI Analysis**: `AIAgent` uses LangChain and Groq (LLaMA 3.1 70B) to:
    - Analyze job page content
-   - Extract structured job information (title, salary, home office, etc.)
+   - Extract structured job information for **ALL jobs found** (title, salary, home office, etc.)
    - Determine if positions are available
+   - Apply rate limiting between API calls to avoid throttling
 4. **JSON Response**: All data is structured into a Table with TableRow objects matching the frontend interface
+   - **Multiple jobs per company**: If a company has 3 jobs, 3 separate TableRow entries are returned
 
 ## Configuration
 
@@ -289,6 +308,9 @@ EXCEL_FILE_PATH=src/data/excel.xls
 # Processing Configuration
 MAX_CONCURRENT_REQUESTS=5
 REQUEST_TIMEOUT=30
+
+# AI Rate Limiting (seconds between API calls)
+AI_RATE_LIMIT_DELAY=2
 ```
 
 ## Development
