@@ -31,6 +31,7 @@ class TableRow(BaseModel):
     period: Optional[str] = None
     employmentType: Optional[str] = None
     applicationDate: Optional[date] = None
+    foundOn: Optional[str] = None
     comments: Optional[str] = None
 
 

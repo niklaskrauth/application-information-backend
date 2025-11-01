@@ -181,6 +181,7 @@ class JobProcessor:
                 period=job_info.get('period'),
                 employmentType=job_info.get('employmentType'),
                 applicationDate=application_date,
+                foundOn=job_info.get('foundOn'),
                 comments=job_info.get('comments')
             )
             rows.append(row)

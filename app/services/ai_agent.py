@@ -116,6 +116,7 @@ Bitte analysieren Sie diesen Inhalt und extrahieren Sie Informationen für ALLE 
         "period": "Arbeitszeit falls erwähnt (z.B., 'Vollzeit', 'Teilzeit', '40 Stunden/Woche')" oder null,
         "employmentType": "Beschäftigungsart falls erwähnt (z.B., 'Unbefristet', 'Befristet', 'Festanstellung')" oder null,
         "applicationDate": "JJJJ-MM-TT Format (z.B., '2025-12-31') falls eine Bewerbungsfrist oder ein Datum erwähnt wird" oder null,
+        "foundOn": "Quelle der Stelle (z.B., 'Hauptseite', 'PDF: [Titel]', 'Unterseite: [URL]')" oder null,
         "comments": "zusätzliche relevante Informationen zu dieser spezifischen Stelle (KEINE Datumsangaben hier)" oder null
     }},
     ... (ein Eintrag für jede gefundene Stelle)
@@ -132,6 +133,11 @@ WICHTIG zum Datum (applicationDate):
 - Wenn "bis Ende des Monats" oder ähnlich steht, berechnen Sie das konkrete Datum
 - Fügen Sie Datumsangaben NIEMALS in das "comments" Feld ein
 - Nur wenn kein Datum vorhanden ist, setzen Sie applicationDate auf null
+
+WICHTIG zur Quelle (foundOn):
+- Identifizieren Sie, wo die Stelle gefunden wurde (z.B., auf der Hauptseite, in einem PDF-Dokument, auf einer Unterseite)
+- Geben Sie eine beschreibende Quelle an (z.B., "Hauptseite", "PDF: Stellenanzeige.pdf", "Unterseite: https://...")
+- Wenn die Quelle unklar ist, setzen Sie foundOn auf null
 
 Weitere wichtige Regeln:
 - Extrahieren Sie ALLE passenden Stellen, die auf der Seite gefunden werden
