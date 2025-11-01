@@ -18,7 +18,7 @@ class AIAgent:
         
         self.enabled = True
         self.llm = ChatGroq(
-            model="llama-3.1-70b-versatile",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             temperature=0.3,
             groq_api_key=settings.GROQ_API_KEY
         )

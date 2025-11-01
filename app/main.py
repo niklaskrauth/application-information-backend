@@ -66,12 +66,18 @@ async def get_jobs():
     """
     try:
         # Check if Excel file exists
+        logger.info(f"Überprüfe, ob die Datei existiert: {settings.EXCEL_FILE_PATH}")
         if not os.path.exists(settings.EXCEL_FILE_PATH):
+            logger.error(f"Excel-Datei nicht gefunden: {settings.EXCEL_FILE_PATH}")
             raise HTTPException(
                 status_code=404,
-                detail=f"Excel file not found at {settings.EXCEL_FILE_PATH}"
+                detail=f"Excel-Datei nicht gefunden unter {settings.EXCEL_FILE_PATH}"
             )
-        
+
+        # JobProcessor erstellen und Jobs verarbeiten
+        logger.info("Erstelle JobProcessor und starte Verarbeitung...")
+
+
         # Create processor and process jobs
         processor = JobProcessor(
             excel_path=settings.EXCEL_FILE_PATH,

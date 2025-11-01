@@ -16,7 +16,7 @@ class Settings:
     DEBUG_MODE: bool = os.getenv("DEBUG_MODE", "True").lower() == "true"
     
     # File paths
-    EXCEL_FILE_PATH: str = os.getenv("EXCEL_FILE_PATH", "src/data/excel.xls")
+    EXCEL_FILE_PATH: str = os.getenv("EXCEL_FILE_PATH", "data/Landratsamt.xlsx")
     
     # Processing Configuration
     MAX_CONCURRENT_REQUESTS: int = int(os.getenv("MAX_CONCURRENT_REQUESTS", "5"))
