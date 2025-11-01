@@ -1,8 +1,9 @@
 from langchain_groq import ChatGroq
-from typing import Dict, Any
+from typing import Dict, Any, List
 import logging
 from app.config import settings
 import json
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +23,28 @@ class AIAgent:
             temperature=0.3,
             groq_api_key=settings.GROQ_API_KEY
         )
+        # Initialize to current time to avoid artificial delay on first call
+        self.last_api_call_time = time.time()
+        self.min_delay_between_calls = settings.AI_RATE_LIMIT_DELAY  # configurable delay
+        # Maximum content length to send to AI (tokens limit consideration)
+        self.max_content_length = 10000
     
-    def extract_job_info(self, location: str, website: str, website_to_jobs: str, page_content: str) -> Dict[str, Any]:
+    def _rate_limit(self):
+        """Implement rate limiting by adding delays between API calls"""
+        current_time = time.time()
+        time_since_last_call = current_time - self.last_api_call_time
+        
+        if time_since_last_call < self.min_delay_between_calls:
+            sleep_time = self.min_delay_between_calls - time_since_last_call
+            logger.info(f"Rate limiting: sleeping for {sleep_time:.2f} seconds")
+            time.sleep(sleep_time)
+        
+        self.last_api_call_time = time.time()
+    
+    def extract_multiple_jobs(self, location: str, website: str, website_to_jobs: str, page_content: str) -> List[Dict[str, Any]]:
         """
-        Extract job information from website content using AI.
+        Extract ALL job information from website content using AI.
+        Returns a list of job dictionaries, one for each job found.
         
         Args:
             location: Location from Excel
@@ -34,41 +53,48 @@ class AIAgent:
             page_content: Text content from the jobs page
             
         Returns:
-            Dictionary with job information
+            List of dictionaries with job information (one per job)
         """
         if not self.enabled:
-            return {
+            return [{
                 "hasJob": False,
                 "comments": "AI analysis disabled - Groq API key not configured"
-            }
+            }]
         
         try:
+            # Apply rate limiting
+            self._rate_limit()
+            
             prompt = f"""
-You are analyzing a company's job page to extract information about available positions.
+You are analyzing a company's job page to extract information about ALL available positions.
 
 Location: {location}
 Company Website: {website}
 Jobs Page: {website_to_jobs}
 
 Content from jobs page:
-{page_content[:8000]}
+{page_content[:self.max_content_length]}
 
-Please analyze this content and extract the following information in JSON format:
-{{
-    "hasJob": true or false (whether there are any open positions),
-    "name": "job title if found" or null,
-    "salary": "salary information if mentioned" or null,
-    "homeOfficeOption": true/false/null (whether home office or remote work is mentioned),
-    "period": "work period/hours if mentioned (e.g., 'Full-time', 'Part-time', '40 hours/week')" or null,
-    "employmentType": "type of employment if mentioned (e.g., 'Permanent', 'Contract', 'Internship')" or null,
-    "comments": "any additional relevant information about the job or application process" or null
-}}
+Please analyze this content and extract information for ALL job positions found. Return a JSON array where each element represents one job:
+[
+    {{
+        "hasJob": true,
+        "name": "job title",
+        "salary": "salary information if mentioned" or null,
+        "homeOfficeOption": true/false/null (whether home office or remote work is mentioned),
+        "period": "work period/hours if mentioned (e.g., 'Full-time', 'Part-time', '40 hours/week')" or null,
+        "employmentType": "type of employment if mentioned (e.g., 'Permanent', 'Contract', 'Internship')" or null,
+        "comments": "any additional relevant information about this specific job" or null
+    }},
+    ... (one entry for each job found)
+]
 
 Important:
-- Set hasJob to true only if there are actual open positions
-- Extract the most relevant or first job if multiple are listed
+- Extract ALL jobs found on the page, not just the first one
+- If NO jobs are found, return: [{{"hasJob": false, "comments": "No open positions found"}}]
+- Each job should be a separate object in the array
 - Be concise in your extractions
-- Return ONLY valid JSON, no additional text
+- Return ONLY valid JSON array, no additional text
 """
             
             response = self.llm.invoke(prompt)
@@ -81,18 +107,47 @@ Important:
                 content = content.split("```")[1].split("```")[0].strip()
             
             result = json.loads(content)
-            logger.info(f"Successfully extracted job info for {location}")
+            
+            # Ensure result is a list
+            if isinstance(result, dict):
+                # If AI returned a single job as dict, wrap it in a list
+                result = [result]
+            
+            logger.info(f"Successfully extracted {len(result)} job(s) for {location}")
             return result
             
         except json.JSONDecodeError as e:
             logger.error(f"Error parsing AI response as JSON: {str(e)}")
-            return {
+            return [{
                 "hasJob": False,
                 "comments": f"Error parsing AI response: {str(e)}"
-            }
+            }]
         except Exception as e:
             logger.error(f"Error extracting job info: {str(e)}")
-            return {
+            return [{
                 "hasJob": False,
                 "comments": f"Error analyzing content: {str(e)}"
-            }
+            }]
+    
+    def extract_job_info(self, location: str, website: str, website_to_jobs: str, page_content: str) -> Dict[str, Any]:
+        """
+        Extract job information from website content using AI (single job - legacy method).
+        
+        This method is kept for backward compatibility but now delegates to extract_multiple_jobs
+        and returns only the first job.
+        
+        Args:
+            location: Location from Excel
+            website: Main website URL
+            website_to_jobs: Jobs page URL
+            page_content: Text content from the jobs page
+            
+        Returns:
+            Dictionary with job information
+        """
+        jobs = self.extract_multiple_jobs(location, website, website_to_jobs, page_content)
+        # Return the first job (or default if list is empty)
+        return jobs[0] if jobs else {
+            "hasJob": False,
+            "comments": "No jobs extracted"
+        }
