@@ -1,108 +1,98 @@
-from langchain.agents import AgentExecutor, create_openai_functions_agent
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_openai import ChatOpenAI
-from langchain.tools import Tool
-from typing import List, Dict, Any
+from langchain_groq import ChatGroq
+from typing import Dict, Any
 import logging
 from app.config import settings
+import json
 
 logger = logging.getLogger(__name__)
 
 
 class AIAgent:
-    """LangChain AI Agent for analyzing and summarizing website content"""
+    """LangChain AI Agent using Groq for analyzing job information from websites"""
     
     def __init__(self):
-        if not settings.OPENAI_API_KEY:
-            logger.warning("OpenAI API key not set. AI summarization will be disabled.")
+        if not settings.GROQ_API_KEY:
+            logger.warning("Groq API key not set. AI analysis will be disabled.")
             self.enabled = False
             return
         
         self.enabled = True
-        self.llm = ChatOpenAI(
-            model="gpt-3.5-turbo",
-            temperature=0.7,
-            openai_api_key=settings.OPENAI_API_KEY
+        self.llm = ChatGroq(
+            model="llama-3.1-70b-versatile",
+            temperature=0.3,
+            groq_api_key=settings.GROQ_API_KEY
         )
     
-    def summarize_content(self, content: str, context: str = "") -> str:
+    def extract_job_info(self, location: str, website: str, website_to_jobs: str, page_content: str) -> Dict[str, Any]:
         """
-        Summarize extracted content using AI.
+        Extract job information from website content using AI.
         
         Args:
-            content: The text content to summarize
-            context: Additional context about the content
+            location: Location from Excel
+            website: Main website URL
+            website_to_jobs: Jobs page URL
+            page_content: Text content from the jobs page
             
         Returns:
-            AI-generated summary
+            Dictionary with job information
         """
         if not self.enabled:
-            return "AI summarization disabled - OpenAI API key not configured"
+            return {
+                "hasJob": False,
+                "comments": "AI analysis disabled - Groq API key not configured"
+            }
         
         try:
             prompt = f"""
-            Please provide a concise summary of the following content from a website application.
-            {f'Context: {context}' if context else ''}
-            
-            Content:
-            {content[:5000]}  # Limit content length
-            
-            Summary should include:
-            - Main purpose or topic
-            - Key features or information
-            - Any important details
-            """
-            
-            response = self.llm.invoke(prompt)
-            summary = response.content
-            
-            logger.info("Successfully generated content summary")
-            return summary
-            
-        except Exception as e:
-            logger.error(f"Error generating summary: {str(e)}")
-            return f"Error generating summary: {str(e)}"
-    
-    def analyze_application_info(self, data: Dict[str, Any]) -> str:
-        """
-        Analyze all extracted information about an application.
-        
-        Args:
-            data: Dictionary containing all extracted data
-            
-        Returns:
-            Comprehensive analysis and summary
-        """
-        if not self.enabled:
-            return "AI analysis disabled - OpenAI API key not configured"
-        
-        try:
-            prompt = f"""
-            Analyze the following information extracted from a website application:
-            
-            Application Name: {data.get('name', 'Unknown')}
-            Main URL: {data.get('url', 'Unknown')}
-            Description: {data.get('description', 'Not provided')}
-            
-            Number of links found: {data.get('num_links', 0)}
-            Number of PDFs: {data.get('num_pdfs', 0)}
-            Number of images: {data.get('num_images', 0)}
-            
-            Sample content:
-            {data.get('sample_content', 'No content available')[:3000]}
-            
-            Please provide:
-            1. A brief overview of what this application/website is about
-            2. Key information or features identified
-            3. Summary of the available resources (PDFs, images, etc.)
-            """
+You are analyzing a company's job page to extract information about available positions.
+
+Location: {location}
+Company Website: {website}
+Jobs Page: {website_to_jobs}
+
+Content from jobs page:
+{page_content[:8000]}
+
+Please analyze this content and extract the following information in JSON format:
+{{
+    "hasJob": true or false (whether there are any open positions),
+    "name": "job title if found" or null,
+    "salary": "salary information if mentioned" or null,
+    "homeOfficeOption": true/false/null (whether home office or remote work is mentioned),
+    "period": "work period/hours if mentioned (e.g., 'Full-time', 'Part-time', '40 hours/week')" or null,
+    "employmentType": "type of employment if mentioned (e.g., 'Permanent', 'Contract', 'Internship')" or null,
+    "comments": "any additional relevant information about the job or application process" or null
+}}
+
+Important:
+- Set hasJob to true only if there are actual open positions
+- Extract the most relevant or first job if multiple are listed
+- Be concise in your extractions
+- Return ONLY valid JSON, no additional text
+"""
             
             response = self.llm.invoke(prompt)
-            analysis = response.content
+            content = response.content.strip()
             
-            logger.info("Successfully generated application analysis")
-            return analysis
+            # Try to extract JSON from the response
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
             
+            result = json.loads(content)
+            logger.info(f"Successfully extracted job info for {location}")
+            return result
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing AI response as JSON: {str(e)}")
+            return {
+                "hasJob": False,
+                "comments": f"Error parsing AI response: {str(e)}"
+            }
         except Exception as e:
-            logger.error(f"Error generating analysis: {str(e)}")
-            return f"Error generating analysis: {str(e)}"
+            logger.error(f"Error extracting job info: {str(e)}")
+            return {
+                "hasJob": False,
+                "comments": f"Error analyzing content: {str(e)}"
+            }

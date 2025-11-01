@@ -41,6 +41,8 @@ Thumbs.db
 
 # Application specific
 data/*.xlsx
+src/data/*.xls
+src/data/*.xlsx
 logs/
 *.log
 

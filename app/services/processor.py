@@ -1,137 +1,103 @@
 import logging
 from typing import List
-from datetime import datetime
-from app.models import WebsiteEntry, ApplicationInfo, ExtractedContent
+from app.models import WebsiteEntry, TableRow, Table
 from app.services.excel_reader import ExcelReader
 from app.services.web_scraper import WebScraper
-from app.services.content_extractor import ContentExtractor
 from app.services.ai_agent import AIAgent
 
 logger = logging.getLogger(__name__)
 
 
-class ApplicationProcessor:
-    """Main processor for handling website applications"""
+class JobProcessor:
+    """Processor for extracting job information from company websites"""
     
     def __init__(self, excel_path: str, timeout: int = 30):
         self.excel_reader = ExcelReader(excel_path)
         self.web_scraper = WebScraper(timeout=timeout)
-        self.content_extractor = ContentExtractor(timeout=timeout)
         self.ai_agent = AIAgent()
     
-    def process_all_applications(self) -> List[ApplicationInfo]:
+    def process_all_jobs(self) -> Table:
         """
-        Process all applications from the Excel file.
+        Process all company entries from the Excel file and extract job information.
         
         Returns:
-            List of ApplicationInfo objects with extracted data
+            Table object with job information rows
         """
-        logger.info("Starting application processing")
+        logger.info("Starting job processing")
         
         # Read entries from Excel
         entries = self.excel_reader.read_entries()
         logger.info(f"Found {len(entries)} entries to process")
         
-        results = []
+        rows = []
         for entry in entries:
             try:
-                app_info = self._process_single_application(entry)
-                results.append(app_info)
+                row = self._process_single_entry(entry)
+                rows.append(row)
             except Exception as e:
-                logger.error(f"Error processing application {entry.name}: {str(e)}")
-                # Create a basic entry with error info
-                app_info = ApplicationInfo(
-                    id=entry.id,
-                    name=entry.name,
-                    main_url=str(entry.url),
-                    description=entry.description,
-                    summary=f"Error processing: {str(e)}"
+                logger.error(f"Error processing entry {entry.location}: {str(e)}")
+                # Create a basic row with error info
+                row = TableRow(
+                    location=entry.location,
+                    website=entry.website,
+                    websiteToJobs=entry.websiteToJobs or entry.website,
+                    hasJob=False,
+                    comments=f"Error processing: {str(e)}"
                 )
-                results.append(app_info)
+                rows.append(row)
         
-        logger.info(f"Completed processing {len(results)} applications")
-        return results
+        logger.info(f"Completed processing {len(rows)} entries")
+        return Table(rows=rows)
     
-    def _process_single_application(self, entry: WebsiteEntry) -> ApplicationInfo:
+    def _process_single_entry(self, entry: WebsiteEntry) -> TableRow:
         """
-        Process a single website application entry.
+        Process a single company entry to extract job information.
         
         Args:
             entry: WebsiteEntry to process
             
         Returns:
-            ApplicationInfo with all extracted data
+            TableRow with job information
         """
-        logger.info(f"Processing application: {entry.name}")
+        logger.info(f"Processing entry: {entry.location}")
         
-        # Scrape the main website
-        main_text, links = self.web_scraper.scrape_website(str(entry.url))
+        # Determine which URL to scrape (jobs page if available, otherwise main website)
+        scrape_url = entry.websiteToJobs if entry.websiteToJobs else entry.website
         
-        # Store main page content
-        extracted_contents = [
-            ExtractedContent(
-                url=str(entry.url),
-                content_type='webpage',
-                text_content=main_text,
-                metadata={'is_main_page': True}
+        # Scrape the jobs page
+        try:
+            page_text, _ = self.web_scraper.scrape_website(scrape_url)
+        except Exception as e:
+            logger.error(f"Error scraping {scrape_url}: {str(e)}")
+            return TableRow(
+                location=entry.location,
+                website=entry.website,
+                websiteToJobs=entry.websiteToJobs or entry.website,
+                hasJob=False,
+                comments=f"Error scraping website: {str(e)}"
             )
-        ]
         
-        # Process PDFs and images from extracted links
-        pdf_count = 0
-        image_count = 0
-        
-        for link in links:
-            if link.link_type == 'pdf' and pdf_count < 5:  # Limit to first 5 PDFs
-                pdf_text = self.content_extractor.extract_pdf_content(link.url)
-                if pdf_text:
-                    extracted_contents.append(
-                        ExtractedContent(
-                            url=link.url,
-                            content_type='pdf',
-                            text_content=pdf_text,
-                            metadata={'title': link.title}
-                        )
-                    )
-                    pdf_count += 1
-            
-            elif link.link_type == 'image' and image_count < 3:  # Limit to first 3 images
-                image_text = self.content_extractor.extract_image_content(link.url)
-                if image_text:
-                    extracted_contents.append(
-                        ExtractedContent(
-                            url=link.url,
-                            content_type='image',
-                            text_content=image_text,
-                            metadata={'title': link.title, 'alt': link.title}
-                        )
-                    )
-                    image_count += 1
-        
-        # Generate AI summary
-        analysis_data = {
-            'name': entry.name,
-            'url': str(entry.url),
-            'description': entry.description,
-            'num_links': len(links),
-            'num_pdfs': sum(1 for l in links if l.link_type == 'pdf'),
-            'num_images': sum(1 for l in links if l.link_type == 'image'),
-            'sample_content': main_text[:2000] if main_text else ''
-        }
-        
-        summary = self.ai_agent.analyze_application_info(analysis_data)
-        
-        # Create ApplicationInfo object
-        app_info = ApplicationInfo(
-            id=entry.id,
-            name=entry.name,
-            main_url=str(entry.url),
-            description=entry.description,
-            extracted_links=links,
-            extracted_contents=extracted_contents,
-            summary=summary,
-            processed_at=datetime.now()
+        # Use AI to extract job information
+        job_info = self.ai_agent.extract_job_info(
+            location=entry.location,
+            website=entry.website,
+            website_to_jobs=scrape_url,
+            page_content=page_text
         )
         
-        logger.info(f"Successfully processed {entry.name}: {len(links)} links, {len(extracted_contents)} contents")
-        return app_info
+        # Create TableRow with extracted information
+        row = TableRow(
+            location=entry.location,
+            website=entry.website,
+            websiteToJobs=entry.websiteToJobs or entry.website,
+            hasJob=job_info.get('hasJob', False),
+            name=job_info.get('name'),
+            salary=job_info.get('salary'),
+            homeOfficeOption=job_info.get('homeOfficeOption'),
+            period=job_info.get('period'),
+            employmentType=job_info.get('employmentType'),
+            comments=job_info.get('comments')
+        )
+        
+        logger.info(f"Successfully processed {entry.location}: hasJob={row.hasJob}")
+        return row

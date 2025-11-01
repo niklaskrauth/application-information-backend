@@ -18,9 +18,9 @@ class ExcelReader:
         
         Expected columns:
         - id: Unique identifier
-        - name: Application name
-        - url: Website URL
-        - description: Optional description
+        - location: Company location
+        - website: Main website URL
+        - websiteToJobs: Jobs page URL (optional)
         
         Returns:
             List of WebsiteEntry objects
@@ -30,7 +30,7 @@ class ExcelReader:
             df = pd.read_excel(self.file_path)
             
             # Validate required columns
-            required_columns = ['id', 'name', 'url']
+            required_columns = ['id', 'location', 'website']
             missing_columns = [col for col in required_columns if col not in df.columns]
             
             if missing_columns:
@@ -41,13 +41,13 @@ class ExcelReader:
             for _, row in df.iterrows():
                 entry_data = {
                     'id': int(row['id']),
-                    'name': str(row['name']),
-                    'url': str(row['url']),
+                    'location': str(row['location']),
+                    'website': str(row['website']),
                 }
                 
-                # Add optional description if present
-                if 'description' in df.columns and pd.notna(row['description']):
-                    entry_data['description'] = str(row['description'])
+                # Add optional websiteToJobs if present
+                if 'websiteToJobs' in df.columns and pd.notna(row['websiteToJobs']):
+                    entry_data['websiteToJobs'] = str(row['websiteToJobs'])
                 
                 entry = WebsiteEntry(**entry_data)
                 entries.append(entry)

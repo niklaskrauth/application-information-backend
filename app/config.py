@@ -8,7 +8,7 @@ class Settings:
     """Application settings loaded from environment variables"""
     
     # API Configuration
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     
     # Application Configuration
     APP_HOST: str = os.getenv("APP_HOST", "0.0.0.0")
@@ -16,7 +16,7 @@ class Settings:
     DEBUG_MODE: bool = os.getenv("DEBUG_MODE", "True").lower() == "true"
     
     # File paths
-    EXCEL_FILE_PATH: str = os.getenv("EXCEL_FILE_PATH", "data/applications.xlsx")
+    EXCEL_FILE_PATH: str = os.getenv("EXCEL_FILE_PATH", "src/data/excel.xls")
     
     # Processing Configuration
     MAX_CONCURRENT_REQUESTS: int = int(os.getenv("MAX_CONCURRENT_REQUESTS", "5"))
