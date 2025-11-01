@@ -9,6 +9,9 @@ from app.services.ai_agent import AIAgent
 
 logger = logging.getLogger(__name__)
 
+# Date format for parsing applicationType dates from AI response
+DATE_FORMAT = '%Y-%m-%d'
+
 
 class JobProcessor:
     """Processor for extracting job information from company websites"""
@@ -139,7 +142,7 @@ class JobProcessor:
             application_type = job_info.get('applicationType')
             if application_type and isinstance(application_type, str):
                 try:
-                    application_type = datetime.strptime(application_type, '%Y-%m-%d').date()
+                    application_type = datetime.strptime(application_type, DATE_FORMAT).date()
                 except (ValueError, TypeError):
                     logger.warning(f"Could not parse applicationType date: {application_type}")
                     application_type = None
