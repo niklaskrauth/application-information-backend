@@ -1,5 +1,6 @@
 import logging
 from typing import List
+from datetime import datetime
 from app.models import WebsiteEntry, TableRow, Table
 from app.services.excel_reader import ExcelReader
 from app.services.web_scraper import WebScraper
@@ -137,7 +138,6 @@ class JobProcessor:
             # Parse applicationType if it's a string in YYYY-MM-DD format
             application_type = job_info.get('applicationType')
             if application_type and isinstance(application_type, str):
-                from datetime import datetime
                 try:
                     application_type = datetime.strptime(application_type, '%Y-%m-%d').date()
                 except (ValueError, TypeError):

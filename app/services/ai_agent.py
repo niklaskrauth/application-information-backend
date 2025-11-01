@@ -7,6 +7,13 @@ import time
 
 logger = logging.getLogger(__name__)
 
+# Job types to exclude from results (trainee, internship, student positions)
+EXCLUDED_JOB_TYPES = [
+    "Auszubildung", "Auszubildende", "Auszubildender",
+    "Praktikum", "Praktikant", "Praktikanten",
+    "Studium", "Student", "Studenten"
+]
+
 
 class AIAgent:
     """LangChain AI Agent using Groq for analyzing job information from websites"""
@@ -65,6 +72,9 @@ class AIAgent:
             # Apply rate limiting
             self._rate_limit()
             
+            # Build exclusion list for prompt
+            excluded_terms = '", "'.join(EXCLUDED_JOB_TYPES)
+            
             prompt = f"""
 Sie analysieren eine Unternehmenswebseite, um Informationen über ALLE verfügbaren Stellen zu extrahieren.
 
@@ -93,7 +103,7 @@ Bitte analysieren Sie diesen Inhalt und extrahieren Sie Informationen für ALLE 
 Wichtig:
 - Extrahieren Sie ALLE Stellen, die auf der Seite gefunden werden, nicht nur die erste
 - Wenn KEINE Stellen gefunden werden, geben Sie zurück: [{{"hasJob": false, "comments": "Keine offenen Stellen gefunden"}}]
-- IGNORIEREN Sie Stellen, die "Auszubildung", "Auszubildende", "Auszubildender", "Praktikum", "Praktikant", "Praktikanten", "Studium", "Student" oder "Studenten" im Titel oder in der Beschäftigungsart enthalten
+- IGNORIEREN Sie Stellen, die "{excluded_terms}" im Titel oder in der Beschäftigungsart enthalten
 - Jede Stelle sollte ein separates Objekt im Array sein
 - Seien Sie präzise in Ihren Extraktionen
 - Geben Sie NUR ein gültiges JSON-Array zurück, keinen zusätzlichen Text
