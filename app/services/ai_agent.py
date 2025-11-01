@@ -94,7 +94,6 @@ Bitte analysieren Sie diesen Inhalt und extrahieren Sie Informationen für ALLE 
         "homeOfficeOption": true/false/null (ob Home Office oder Remote-Arbeit erwähnt wird),
         "period": "Arbeitszeit falls erwähnt (z.B., 'Vollzeit', 'Teilzeit', '40 Stunden/Woche')" oder null,
         "employmentType": "Beschäftigungsart falls erwähnt (z.B., 'Unbefristet', 'Befristet', 'Festanstellung')" oder null,
-        "applicationType": "Bewerbungsfrist als Datum im Format YYYY-MM-DD falls erwähnt" oder null,
         "comments": "zusätzliche relevante Informationen zu dieser spezifischen Stelle" oder null
     }},
     ... (ein Eintrag für jede gefundene Stelle)

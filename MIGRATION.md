@@ -68,7 +68,6 @@ class TableRow:
     period: Optional[str]
     employmentType: Optional[str]
     applicationDate: Optional[date]
-    applicationType: Optional[date]  # Application deadline date
     comments: Optional[str]
 
 class Table:

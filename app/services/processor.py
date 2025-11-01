@@ -1,6 +1,5 @@
 import logging
 from typing import List
-from datetime import datetime
 from app.models import WebsiteEntry, TableRow, Table
 from app.services.excel_reader import ExcelReader
 from app.services.web_scraper import WebScraper
@@ -8,9 +7,6 @@ from app.services.content_extractor import ContentExtractor
 from app.services.ai_agent import AIAgent
 
 logger = logging.getLogger(__name__)
-
-# Date format for parsing applicationType dates from AI response
-DATE_FORMAT = '%Y-%m-%d'
 
 
 class JobProcessor:
@@ -138,15 +134,6 @@ class JobProcessor:
         # Create TableRow for each job found
         rows = []
         for job_info in jobs_info_list:
-            # Parse applicationType if it's a string in YYYY-MM-DD format
-            application_type = job_info.get('applicationType')
-            if application_type and isinstance(application_type, str):
-                try:
-                    application_type = datetime.strptime(application_type, DATE_FORMAT).date()
-                except (ValueError, TypeError):
-                    logger.warning(f"Could not parse applicationType date: {application_type}")
-                    application_type = None
-            
             row = TableRow(
                 location=entry.location,
                 website=entry.website,
@@ -157,7 +144,6 @@ class JobProcessor:
                 homeOfficeOption=job_info.get('homeOfficeOption'),
                 period=job_info.get('period'),
                 employmentType=job_info.get('employmentType'),
-                applicationType=application_type,
                 comments=job_info.get('comments')
             )
             rows.append(row)
