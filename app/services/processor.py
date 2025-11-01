@@ -23,7 +23,7 @@ class JobProcessor:
         Process all company entries from the Excel file and extract job information.
         
         Returns:
-            Table object with job information rows
+            Table object with job information rows (multiple rows per company if multiple jobs exist)
         """
         logger.info("Starting job processing")
         
@@ -34,8 +34,9 @@ class JobProcessor:
         rows = []
         for entry in entries:
             try:
-                row = self._process_single_entry(entry)
-                rows.append(row)
+                # _process_single_entry now returns a list of rows
+                entry_rows = self._process_single_entry(entry)
+                rows.extend(entry_rows)
             except Exception as e:
                 logger.error(f"Error processing entry {entry.location}: {str(e)}")
                 # Create a basic row with error info
@@ -48,10 +49,10 @@ class JobProcessor:
                 )
                 rows.append(row)
         
-        logger.info(f"Completed processing {len(rows)} entries")
+        logger.info(f"Completed processing - found {len(rows)} total job entries")
         return Table(rows=rows)
     
-    def _process_single_entry(self, entry: WebsiteEntry) -> TableRow:
+    def _process_single_entry(self, entry: WebsiteEntry) -> List[TableRow]:
         """
         Process a single company entry to extract job information.
         
@@ -60,13 +61,13 @@ class JobProcessor:
         2. Extracts links (including PDFs and job detail pages)
         3. Follows relevant job-related links to get more content
         4. Extracts text from PDFs if found
-        5. Uses AI to analyze all collected content
+        5. Uses AI to analyze all collected content and extract ALL jobs
         
         Args:
             entry: WebsiteEntry to process
             
         Returns:
-            TableRow with job information
+            List of TableRow objects (one per job found)
         """
         logger.info(f"Processing entry: {entry.location}")
         
@@ -78,13 +79,13 @@ class JobProcessor:
             page_text, links = self.web_scraper.scrape_website(scrape_url)
         except Exception as e:
             logger.error(f"Error scraping {scrape_url}: {str(e)}")
-            return TableRow(
+            return [TableRow(
                 location=entry.location,
                 website=entry.website,
                 websiteToJobs=entry.websiteToJobs or entry.website,
                 hasJob=False,
                 comments=f"Error scraping website: {str(e)}"
-            )
+            )]
         
         # Collect all content from main page and linked resources
         all_content = [f"Main page content:\n{page_text}"]
@@ -122,27 +123,30 @@ class JobProcessor:
         # Combine all content for AI analysis
         combined_content = "\n\n".join(all_content)
         
-        # Use AI to extract job information from all collected content
-        job_info = self.ai_agent.extract_job_info(
+        # Use AI to extract ALL job information from all collected content
+        jobs_info_list = self.ai_agent.extract_multiple_jobs(
             location=entry.location,
             website=entry.website,
             website_to_jobs=scrape_url,
             page_content=combined_content[:15000]  # Limit total content to avoid token limits
         )
         
-        # Create TableRow with extracted information
-        row = TableRow(
-            location=entry.location,
-            website=entry.website,
-            websiteToJobs=entry.websiteToJobs or entry.website,
-            hasJob=job_info.get('hasJob', False),
-            name=job_info.get('name'),
-            salary=job_info.get('salary'),
-            homeOfficeOption=job_info.get('homeOfficeOption'),
-            period=job_info.get('period'),
-            employmentType=job_info.get('employmentType'),
-            comments=job_info.get('comments')
-        )
+        # Create TableRow for each job found
+        rows = []
+        for job_info in jobs_info_list:
+            row = TableRow(
+                location=entry.location,
+                website=entry.website,
+                websiteToJobs=entry.websiteToJobs or entry.website,
+                hasJob=job_info.get('hasJob', False),
+                name=job_info.get('name'),
+                salary=job_info.get('salary'),
+                homeOfficeOption=job_info.get('homeOfficeOption'),
+                period=job_info.get('period'),
+                employmentType=job_info.get('employmentType'),
+                comments=job_info.get('comments')
+            )
+            rows.append(row)
         
-        logger.info(f"Successfully processed {entry.location}: hasJob={row.hasJob}")
-        return row
+        logger.info(f"Successfully processed {entry.location}: found {len(rows)} job(s)")
+        return rows
