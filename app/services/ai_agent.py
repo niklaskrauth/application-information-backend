@@ -23,8 +23,11 @@ class AIAgent:
             temperature=0.3,
             groq_api_key=settings.GROQ_API_KEY
         )
-        self.last_api_call_time = 0
+        # Initialize to current time to avoid artificial delay on first call
+        self.last_api_call_time = time.time()
         self.min_delay_between_calls = settings.AI_RATE_LIMIT_DELAY  # configurable delay
+        # Maximum content length to send to AI (tokens limit consideration)
+        self.max_content_length = 10000
     
     def _rate_limit(self):
         """Implement rate limiting by adding delays between API calls"""
@@ -70,7 +73,7 @@ Company Website: {website}
 Jobs Page: {website_to_jobs}
 
 Content from jobs page:
-{page_content[:10000]}
+{page_content[:self.max_content_length]}
 
 Please analyze this content and extract information for ALL job positions found. Return a JSON array where each element represents one job:
 [
