@@ -2,7 +2,7 @@ import requests
 import io
 import logging
 from typing import Optional
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 from PIL import Image
 import pytesseract
 
