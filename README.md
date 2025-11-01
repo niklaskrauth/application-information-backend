@@ -161,6 +161,7 @@ This endpoint:
       "period": "Full-time",
       "employmentType": "Permanent",
       "applicationDate": null,
+      "foundOn": "Main page",
       "comments": "Remote work available, flexible hours"
     },
     {
@@ -174,6 +175,7 @@ This endpoint:
       "period": "Full-time",
       "employmentType": "Permanent",
       "applicationDate": null,
+      "foundOn": "PDF: career_opportunities.pdf",
       "comments": "Great for entry-level candidates"
     },
     {
@@ -187,6 +189,7 @@ This endpoint:
       "period": null,
       "employmentType": null,
       "applicationDate": null,
+      "foundOn": null,
       "comments": "No open positions at this time"
     }
   ]
@@ -210,6 +213,7 @@ interface TableRow {
     period?: string;
     employmentType?: string;
     applicationDate?: Date;
+    foundOn?: string;
     comments?: string;
 }
 ```
