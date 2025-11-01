@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - DEBUG_MODE=True
+      - EXCEL_FILE_PATH=data/applications.xlsx
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env
+    restart: unless-stopped

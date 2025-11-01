@@ -83,6 +83,31 @@ python create_sample_excel.py
 
 This creates a sample `data/applications.xlsx` file with example data.
 
+### Alternative: Using Docker
+
+If you prefer using Docker:
+
+```bash
+# Build and run with docker-compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop the service
+docker-compose down
+```
+
+Or build manually:
+
+```bash
+# Build the image
+docker build -t application-info-backend .
+
+# Run the container
+docker run -p 8000:8000 -v $(pwd)/data:/app/data -e OPENAI_API_KEY=your_key application-info-backend
+```
+
 ## Excel File Format
 
 The Excel file should have the following columns:
