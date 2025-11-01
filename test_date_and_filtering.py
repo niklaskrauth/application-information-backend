@@ -17,36 +17,33 @@ def test_date_parsing():
     """Test that date parsing works for various formats"""
     print("\n=== Testing Date Parsing ===")
     
-    # Create a mock processor to access _parse_date method
-    processor = JobProcessor.__new__(JobProcessor)
-    
     # Test ISO format (YYYY-MM-DD)
-    result = processor._parse_date("2025-12-31")
+    result = JobProcessor._parse_date("2025-12-31")
     assert result == date(2025, 12, 31), f"Expected 2025-12-31, got {result}"
     print("✓ ISO format (YYYY-MM-DD) parsed correctly")
     
     # Test German format (DD.MM.YYYY)
-    result = processor._parse_date("31.12.2025")
+    result = JobProcessor._parse_date("31.12.2025")
     assert result == date(2025, 12, 31), f"Expected 2025-12-31, got {result}"
     print("✓ German format (DD.MM.YYYY) parsed correctly")
     
     # Test slash format (DD/MM/YYYY)
-    result = processor._parse_date("31/12/2025")
+    result = JobProcessor._parse_date("31/12/2025")
     assert result == date(2025, 12, 31), f"Expected 2025-12-31, got {result}"
     print("✓ Slash format (DD/MM/YYYY) parsed correctly")
     
     # Test None input
-    result = processor._parse_date(None)
+    result = JobProcessor._parse_date(None)
     assert result is None, f"Expected None, got {result}"
     print("✓ None input handled correctly")
     
     # Test empty string
-    result = processor._parse_date("")
+    result = JobProcessor._parse_date("")
     assert result is None, f"Expected None, got {result}"
     print("✓ Empty string handled correctly")
     
     # Test invalid date
-    result = processor._parse_date("not a date")
+    result = JobProcessor._parse_date("not a date")
     assert result is None, f"Expected None for invalid date, got {result}"
     print("✓ Invalid date handled correctly")
     
@@ -96,9 +93,9 @@ def test_excluded_qualifications():
     assert "Bachelor" in EXCLUDED_QUALIFICATIONS
     assert "Master" in EXCLUDED_QUALIFICATIONS
     assert "Diplom" in EXCLUDED_QUALIFICATIONS
-    assert "Studium" in EXCLUDED_QUALIFICATIONS
     assert "Hochschulabschluss" in EXCLUDED_QUALIFICATIONS
     assert "Universität" in EXCLUDED_QUALIFICATIONS
+    # Note: "Studium" is in EXCLUDED_JOB_TYPES, not here to avoid duplication
     
     print(f"✓ {len(EXCLUDED_QUALIFICATIONS)} excluded qualification terms defined")
     print(f"  Terms: {', '.join(EXCLUDED_QUALIFICATIONS)}")

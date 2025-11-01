@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 from datetime import datetime, date
 from app.models import WebsiteEntry, TableRow, Table
 from app.services.excel_reader import ExcelReader
@@ -19,7 +19,8 @@ class JobProcessor:
         self.content_extractor = ContentExtractor(timeout=timeout)
         self.ai_agent = AIAgent()
     
-    def _parse_date(self, date_str: str) -> date:
+    @staticmethod
+    def _parse_date(date_str: str) -> Optional[date]:
         """
         Parse a date string in various formats to a date object.
         

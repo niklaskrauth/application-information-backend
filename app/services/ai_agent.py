@@ -28,8 +28,8 @@ INCLUDED_JOB_TYPES = [
 
 # Qualification terms that indicate positions requiring higher education
 EXCLUDED_QUALIFICATIONS = [
-    "Bachelor", "Master", "Diplom", "Studium", "Hochschulabschluss",
-    "Universitätsabschluss", "Akademiker", "B.Sc", "M.Sc", "B.A", "M.A",
+    "Bachelor", "Master", "Diplom", "Hochschulabschluss",
+    "Universitätsabschluss", "Akademiker", "B.Sc.", "M.Sc.", "B.A.", "M.A.",
     "Fachhochschule", "Universität"
 ]
 
