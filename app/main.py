@@ -63,7 +63,7 @@ async def get_jobs():
     Process all company entries from Excel and extract job information.
     
     This endpoint processes entries sequentially:
-    - Scrapes the first website
+    - Scrapes each website
     - Sends to AI for analysis
     - Adds to response
     - Then moves to the next website
@@ -75,16 +75,16 @@ async def get_jobs():
     """
     try:
         # Check if Excel file exists
-        logger.info(f"Überprüfe, ob die Datei existiert: {settings.EXCEL_FILE_PATH}")
+        logger.info(f"Checking if file exists: {settings.EXCEL_FILE_PATH}")
         if not os.path.exists(settings.EXCEL_FILE_PATH):
-            logger.error(f"Excel-Datei nicht gefunden: {settings.EXCEL_FILE_PATH}")
+            logger.error(f"Excel file not found: {settings.EXCEL_FILE_PATH}")
             raise HTTPException(
                 status_code=404,
-                detail=f"Excel-Datei nicht gefunden unter {settings.EXCEL_FILE_PATH}"
+                detail=f"Excel file not found at {settings.EXCEL_FILE_PATH}"
             )
 
-        # JobProcessor erstellen und Jobs verarbeiten
-        logger.info("Erstelle JobProcessor und starte Verarbeitung...")
+        # Create JobProcessor and start processing
+        logger.info("Creating JobProcessor and starting processing...")
 
         # Create processor and process jobs incrementally
         processor = JobProcessor(
@@ -117,7 +117,7 @@ async def get_jobs_stream():
     Process company entries from Excel and stream job information as they are processed.
     
     This endpoint provides incremental results, processing one company at a time:
-    - Scrapes the first website
+    - Scrapes each website
     - Sends to AI for analysis
     - Streams the result
     - Then moves to the next company
@@ -133,7 +133,7 @@ async def get_jobs_stream():
         if not os.path.exists(settings.EXCEL_FILE_PATH):
             raise HTTPException(
                 status_code=404,
-                detail=f"Excel-Datei nicht gefunden unter {settings.EXCEL_FILE_PATH}"
+                detail=f"Excel file not found at {settings.EXCEL_FILE_PATH}"
             )
 
         # Create processor

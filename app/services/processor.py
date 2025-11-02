@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 from app.models import WebsiteEntry, TableRow, Table
 from app.services.excel_reader import ExcelReader
@@ -287,6 +287,9 @@ class JobProcessor:
         all_rows = []
         
         # First, process main page content
+        # Note: Main page results include all jobs (hasJob=true or false) to indicate
+        # if no jobs were found. PDFs and detail pages only add jobs when hasJob=true
+        # to avoid duplicate "no jobs found" entries.
         logger.info(f"Processing main page for {entry.location}")
         main_page_content = f"Main page content:\n{page_text[:self.MAX_CONTENT_PER_SOURCE]}"
         
@@ -297,7 +300,7 @@ class JobProcessor:
             page_content=main_page_content
         )
         
-        # Convert jobs to TableRow objects
+        # Convert jobs to TableRow objects (including hasJob=false entries from main page)
         for job_info in jobs_info_list:
             row = self._create_table_row(entry, job_info, found_on='Main page')
             all_rows.append(row)
