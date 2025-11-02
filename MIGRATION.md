@@ -2,21 +2,21 @@
 
 ## Overview
 
-The application has been refactored from a general-purpose website information extraction system to a focused job extraction tool using Groq AI.
+The application has been refactored from a general-purpose website information extraction system to a focused job extraction tool using Ollama AI for local processing.
 
 ## Key Changes
 
-### 1. AI Provider: OpenAI → Groq
+### 1. AI Provider: OpenAI → Ollama
 
-**Before:**
+**Before (v1):**
 - Used OpenAI GPT-3.5-turbo
 - Required OPENAI_API_KEY
 - langchain-openai package
 
-**After:**
-- Uses Groq LLaMA 3.1 70B model
-- Requires GROQ_API_KEY (free tier available)
-- langchain-groq package
+**After (v2):**
+- Uses Ollama with LLaMA 3.1 models
+- No API key required (runs locally)
+- langchain-ollama package
 
 ### 2. API Endpoints: Multiple → Single
 
@@ -125,7 +125,7 @@ class Table:
 - `content_extractor.py` (PDF and image processing)
 
 **Modified:**
-- `ai_agent.py` - Now focuses only on job extraction with Groq
+- `ai_agent.py` - Now focuses only on job extraction with Ollama
 - `processor.py` - Simplified to `JobProcessor`, no PDF/image handling
 - `excel_reader.py` - Updated for new column names
 
@@ -140,16 +140,33 @@ If migrating from v1:
    EXCEL_FILE_PATH=data/applications.xlsx
    
    # With
-   GROQ_API_KEY=...
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_MODEL=llama3.1:8b
    EXCEL_FILE_PATH=src/data/excel.xls
+   AI_RATE_LIMIT_DELAY=0
    ```
 
-2. Update Excel file:
+2. Install and configure Ollama:
+   ```bash
+   # Install Ollama (visit https://ollama.ai)
+   curl -fsSL https://ollama.ai/install.sh | sh  # Linux/macOS
+   
+   # Start Ollama
+   ollama serve
+   
+   # Pull model
+   ollama pull llama3.1:8b
+   
+   # Install Python package
+   pip install langchain-ollama
+   ```
+
+3. Update Excel file:
    - Create `src/data/` directory
    - Move Excel file to `src/data/excel.xls`
    - Update columns: id, location, website, websiteToJobs
 
-3. Update frontend integration:
+4. Update frontend integration:
    ```javascript
    // Before
    fetch('http://localhost:8000/process', {method: 'POST'})
@@ -158,7 +175,7 @@ If migrating from v1:
    fetch('http://localhost:8000/jobs')
    ```
 
-4. Update response handling:
+5. Update response handling:
    ```javascript
    // Before
    response.data.forEach(app => {
@@ -175,10 +192,12 @@ If migrating from v1:
 
 1. **Simpler API** - Single endpoint, easier to use
 2. **Faster Processing** - No PDF/image extraction
-3. **Cost-Effective** - Groq offers generous free tier
-4. **Focused Purpose** - Specifically designed for job extraction
-5. **Frontend Aligned** - Response format matches frontend interface exactly
-6. **Fewer Dependencies** - Lighter installation, fewer potential issues
+3. **Cost-Effective** - Ollama is completely free, runs locally
+4. **No Rate Limits** - Local processing means unlimited requests
+5. **Focused Purpose** - Specifically designed for job extraction
+6. **Frontend Aligned** - Response format matches frontend interface exactly
+7. **Fewer Dependencies** - Lighter installation, fewer potential issues
+8. **Privacy** - All data processing happens locally
 
 ## Performance Comparison
 
@@ -186,11 +205,13 @@ If migrating from v1:
 - Time per entry: 30-180 seconds
 - Dependencies: 20+ packages
 - API costs: OpenAI usage-based
+- Requires internet connection
 
 **v2:**
-- Time per entry: 5-15 seconds
+- Time per entry: 10-30 seconds (8B model) or 30-120 seconds (70B model)
 - Dependencies: 10 core packages
-- API costs: Groq free tier
+- API costs: Free (local processing)
+- Works offline once model is downloaded
 
 ## Configuration
 
@@ -202,8 +223,10 @@ EXCEL_FILE_PATH=data/applications.xlsx
 
 **v2 .env:**
 ```bash
-GROQ_API_KEY=your_groq_api_key_here
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:8b
 EXCEL_FILE_PATH=src/data/excel.xls
+AI_RATE_LIMIT_DELAY=0
 ```
 
 ## API Documentation Update
