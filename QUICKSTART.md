@@ -5,8 +5,9 @@ Get up and running with the Application Information Backend in 5 minutes!
 ## Prerequisites
 
 - Python 3.8 or higher
-- OpenAI API key (optional, but recommended for AI features)
-- Tesseract OCR (for image text extraction)
+- **Choose one AI provider:**
+  - **Option A**: Groq API key (cloud-based, fast, free tier available)
+  - **Option B**: Ollama (local AI, no API key needed, no rate limits)
 
 ## Step 1: Clone and Install
 
@@ -23,14 +24,56 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Step 2: Configure
+## Step 2: Configure AI Provider
+
+**Choose between Groq (cloud) or Ollama (local):**
+
+### Option A: Using Groq (Cloud-based)
 
 ```bash
 # Copy environment template
 cp .env.example .env
 
-# Edit .env and add your OpenAI API key
-# OPENAI_API_KEY=your_key_here
+# Edit .env and configure Groq
+nano .env
+```
+
+Set in `.env`:
+```
+AI_PROVIDER=groq
+GROQ_API_KEY=your_groq_api_key_here
+```
+
+Get a free Groq API key at: https://console.groq.com/
+
+### Option B: Using Ollama (Local)
+
+```bash
+# 1. Install Ollama
+# Visit https://ollama.ai and follow installation instructions for your OS
+# macOS/Linux: curl -fsSL https://ollama.ai/install.sh | sh
+
+# 2. Start Ollama and pull a model
+ollama serve  # Start Ollama server
+# In a new terminal:
+ollama pull llama3.1:8b  # Download recommended model (8GB RAM required)
+
+# 3. Configure the application
+cp .env.example .env
+nano .env
+```
+
+Set in `.env`:
+```
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:8b
+AI_RATE_LIMIT_DELAY=0
+```
+
+**Note:** For Ollama, also install the langchain-ollama package:
+```bash
+pip install langchain-ollama
 ```
 
 ## Step 3: Create Sample Data
@@ -131,11 +174,30 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### OpenAI errors
+### Groq API errors (if using AI_PROVIDER=groq)
 
 Make sure your API key is set in `.env`:
 ```
-OPENAI_API_KEY=sk-...
+AI_PROVIDER=groq
+GROQ_API_KEY=your_groq_api_key_here
+```
+
+**Rate limit issues?** Consider switching to Ollama for unlimited local processing.
+
+### Ollama errors (if using AI_PROVIDER=ollama)
+
+```bash
+# Make sure Ollama is running
+ollama serve
+
+# Verify model is downloaded
+ollama list
+
+# If model is missing, download it
+ollama pull llama3.1:8b
+
+# Install langchain-ollama package
+pip install langchain-ollama
 ```
 
 ### Excel file not found
