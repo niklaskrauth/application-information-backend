@@ -5,9 +5,7 @@ Get up and running with the Application Information Backend in 5 minutes!
 ## Prerequisites
 
 - Python 3.8 or higher
-- **Choose one AI provider:**
-  - **Option A**: Groq API key (cloud-based, fast, free tier available)
-  - **Option B**: Ollama (local AI, no API key needed, no rate limits)
+- Ollama (local AI, no API key needed, no rate limits)
 
 ## Step 1: Clone and Install
 
@@ -24,29 +22,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Step 2: Configure AI Provider
-
-**Choose between Groq (cloud) or Ollama (local):**
-
-### Option A: Using Groq (Cloud-based)
-
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env and configure Groq
-nano .env
-```
-
-Set in `.env`:
-```
-AI_PROVIDER=groq
-GROQ_API_KEY=your_groq_api_key_here
-```
-
-Get a free Groq API key at: https://console.groq.com/
-
-### Option B: Using Ollama (Local)
+## Step 2: Configure Ollama
 
 ```bash
 # 1. Install Ollama
@@ -65,13 +41,12 @@ nano .env
 
 Set in `.env`:
 ```
-AI_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.1:8b
 AI_RATE_LIMIT_DELAY=0
 ```
 
-**Note:** For Ollama, also install the langchain-ollama package:
+**Note:** Also install the langchain-ollama package:
 ```bash
 pip install langchain-ollama
 ```
@@ -174,17 +149,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Groq API errors (if using AI_PROVIDER=groq)
-
-Make sure your API key is set in `.env`:
-```
-AI_PROVIDER=groq
-GROQ_API_KEY=your_groq_api_key_here
-```
-
-**Rate limit issues?** Consider switching to Ollama for unlimited local processing.
-
-### Ollama errors (if using AI_PROVIDER=ollama)
+### Ollama errors
 
 ```bash
 # Make sure Ollama is running

@@ -8,11 +8,8 @@ class Settings:
     """Application settings loaded from environment variables"""
     
     # AI Provider Configuration
-    # Options: "groq" (default, cloud-based) or "ollama" (local)
-    AI_PROVIDER: str = os.getenv("AI_PROVIDER", "groq").lower()
-    
-    # Groq API Configuration (cloud-based AI)
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    # Using Ollama (local AI)
+    AI_PROVIDER: str = "ollama"
     
     # Ollama Configuration (local AI)
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
