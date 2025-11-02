@@ -6,12 +6,33 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# Import Ollama
+# Import Ollama and handle connection errors
 try:
     from langchain_ollama import ChatOllama
 except ImportError:
     ChatOllama = None
     logger.warning("langchain-ollama is not installed. Install it with: pip install langchain-ollama")
+
+# Build tuple of connection error types to handle
+def _get_connection_errors():
+    """Get tuple of connection error types based on available libraries"""
+    errors = [ConnectionRefusedError, ConnectionError]
+    
+    try:
+        import requests
+        errors.append(requests.exceptions.ConnectionError)
+    except ImportError:
+        pass
+    
+    try:
+        import httpx
+        errors.append(httpx.ConnectError)
+    except ImportError:
+        pass
+    
+    return tuple(errors)
+
+ConnectionErrors = _get_connection_errors()
 
 # Job types to exclude from results (trainee, internship, student positions)
 EXCLUDED_JOB_TYPES = [
@@ -57,32 +78,25 @@ class AIAgent:
             self.llm = ChatOllama(
                 model=settings.OLLAMA_MODEL,
                 base_url=settings.OLLAMA_BASE_URL,
-                temperature=0.3
+                temperature=0.3,
+                timeout=60  # Increase timeout to 60 seconds
             )
             logger.info(f"AI Agent initialized with Ollama provider (model: {settings.OLLAMA_MODEL}, base_url: {settings.OLLAMA_BASE_URL})")
         except Exception as e:
-            logger.error(f"Failed to initialize Ollama: {str(e)}. Make sure Ollama is running at {settings.OLLAMA_BASE_URL}")
+            logger.warning(f"Failed to initialize Ollama: {str(e)}. AI agent will be disabled. Make sure Ollama is running at {settings.OLLAMA_BASE_URL}")
             self.enabled = False
             return
         
         # Initialize to current time to avoid artificial delay on first call
         self.last_api_call_time = time.time()
-        self.min_delay_between_calls = settings.AI_RATE_LIMIT_DELAY  # configurable delay
-        # Maximum content length to send to AI (tokens limit consideration)
-        # Reduced from 10000 to 8000 for better performance
-        self.max_content_length = 8000
+        self.min_delay_between_calls = 0  # No rate limiting for local Ollama
+        # No maximum content length limit - let Ollama handle it
+        self.max_content_length = None
     
     def _rate_limit(self):
         """Implement rate limiting by adding delays between API calls"""
-        current_time = time.time()
-        time_since_last_call = current_time - self.last_api_call_time
-        
-        if time_since_last_call < self.min_delay_between_calls:
-            sleep_time = self.min_delay_between_calls - time_since_last_call
-            logger.info(f"Rate limiting: sleeping for {sleep_time:.2f} seconds")
-            time.sleep(sleep_time)
-        
-        self.last_api_call_time = time.time()
+        # No rate limiting for local Ollama - removed delay
+        pass
     
     def extract_multiple_jobs(self, location: str, website: str, website_to_jobs: str, page_content: str) -> List[Dict[str, Any]]:
         """
@@ -105,8 +119,7 @@ class AIAgent:
             }]
         
         try:
-            # Apply rate limiting
-            self._rate_limit()
+            # No rate limiting needed for local Ollama
             
             # Build exclusion and inclusion lists for prompt
             excluded_terms = '", "'.join(EXCLUDED_JOB_TYPES)
@@ -121,7 +134,7 @@ Unternehmenswebseite: {website}
 Stellenseite: {website_to_jobs}
 
 Inhalt der Stellenseite:
-{page_content[:self.max_content_length]}
+{page_content}
 
 Bitte analysieren Sie diesen Inhalt und extrahieren Sie Informationen für ALLE gefundenen Stellenangebote. Geben Sie ein JSON-Array zurück, wobei jedes Element eine Stelle repräsentiert:
 [
@@ -184,6 +197,13 @@ Weitere wichtige Regeln:
             logger.info(f"Successfully extracted {len(result)} job(s) for {location}")
             return result
             
+        except ConnectionErrors as e:
+            logger.error(f"Connection error when connecting to Ollama at {settings.OLLAMA_BASE_URL}: {str(e)}")
+            logger.error("Please ensure Ollama is running with: ollama serve")
+            return [{
+                "hasJob": False,
+                "comments": f"Cannot connect to Ollama at {settings.OLLAMA_BASE_URL}. Please start Ollama: ollama serve"
+            }]
         except json.JSONDecodeError as e:
             logger.error(f"Error parsing AI response as JSON: {str(e)}")
             return [{
@@ -191,7 +211,7 @@ Weitere wichtige Regeln:
                 "comments": f"Error parsing AI response: {str(e)}"
             }]
         except Exception as e:
-            logger.error(f"Error extracting job info: {str(e)}")
+            logger.error(f"Error analyzing content: {str(e)}")
             return [{
                 "hasJob": False,
                 "comments": f"Error analyzing content: {str(e)}"

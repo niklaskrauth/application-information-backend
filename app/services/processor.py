@@ -13,9 +13,6 @@ logger = logging.getLogger(__name__)
 class JobProcessor:
     """Processor for extracting job information from company websites"""
     
-    # Content truncation limits
-    MAX_CONTENT_PER_SOURCE = 10000  # Maximum characters per content source
-    
     def __init__(self, excel_path: str, timeout: int = 30):
         self.excel_reader = ExcelReader(excel_path)
         self.web_scraper = WebScraper(timeout=timeout)
@@ -237,7 +234,7 @@ class JobProcessor:
             location=entry.location,
             website=entry.website,
             website_to_jobs=scrape_url,
-            page_content=combined_content[:15000]  # Limit total content to avoid token limits
+            page_content=combined_content  # No limit - let Ollama handle it
         )
         
         # Create TableRow for each job found
@@ -291,7 +288,7 @@ class JobProcessor:
         # if no jobs were found. PDFs and detail pages only add jobs when hasJob=true
         # to avoid duplicate "no jobs found" entries.
         logger.info(f"Processing main page for {entry.location}")
-        main_page_content = f"Main page content:\n{page_text[:self.MAX_CONTENT_PER_SOURCE]}"
+        main_page_content = f"Main page content:\n{page_text}"  # No content limit
         
         jobs_info_list = self.ai_agent.extract_multiple_jobs(
             location=entry.location,
@@ -312,7 +309,7 @@ class JobProcessor:
             try:
                 pdf_text = self.content_extractor.extract_pdf_content(pdf_link.url)
                 if pdf_text:
-                    pdf_content = f"PDF content from '{pdf_link.title or pdf_link.url}':\n{pdf_text[:self.MAX_CONTENT_PER_SOURCE]}"
+                    pdf_content = f"PDF content from '{pdf_link.title or pdf_link.url}':\n{pdf_text}"  # No content limit
                     
                     jobs_info_list = self.ai_agent.extract_multiple_jobs(
                         location=entry.location,
@@ -347,7 +344,7 @@ class JobProcessor:
             logger.info(f"Processing job detail page: {job_link.url}")
             try:
                 linked_page_text, _ = self.web_scraper.scrape_website(job_link.url)
-                page_content = f"Job detail page '{job_link.title or job_link.url}':\n{linked_page_text[:self.MAX_CONTENT_PER_SOURCE]}"
+                page_content = f"Job detail page '{job_link.title or job_link.url}':\n{linked_page_text}"  # No content limit
                 
                 jobs_info_list = self.ai_agent.extract_multiple_jobs(
                     location=entry.location,
