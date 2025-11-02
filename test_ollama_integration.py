@@ -62,7 +62,7 @@ def test_ai_agent_with_groq_provider():
     agent = AIAgent()
     
     assert agent.provider == 'groq'
-    assert agent.enabled == False  # Should be disabled without API key
+    assert not agent.enabled  # Should be disabled without API key
     print("✓ AIAgent with Groq provider test passed")
 
 
@@ -101,7 +101,7 @@ def test_invalid_provider():
     from app.services.ai_agent import AIAgent
     agent = AIAgent()
     
-    assert agent.enabled == False  # Should be disabled with invalid provider
+    assert not agent.enabled  # Should be disabled with invalid provider
     print("✓ Invalid provider test passed")
 
 
