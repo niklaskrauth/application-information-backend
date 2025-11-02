@@ -44,9 +44,18 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    ai_configured = False
+    if settings.AI_PROVIDER == "groq":
+        ai_configured = bool(settings.GROQ_API_KEY)
+    elif settings.AI_PROVIDER == "ollama":
+        # For Ollama, we assume it's configured if the provider is set
+        # The actual connection check happens when AIAgent is initialized
+        ai_configured = True
+    
     return {
         "status": "healthy",
-        "groq_configured": bool(settings.GROQ_API_KEY)
+        "ai_provider": settings.AI_PROVIDER,
+        "ai_configured": ai_configured
     }
 
 

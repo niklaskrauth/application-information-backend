@@ -1,25 +1,30 @@
 # Application Information Backend
 
-A Python backend using LangChain and Groq AI for extracting job information from company websites. The system reads company locations from an Excel sheet, scrapes their job pages, and uses AI to extract structured job information for frontend consumption.
+A Python backend using LangChain with Groq AI or Ollama for extracting job information from company websites. The system reads company locations from an Excel sheet, scrapes their job pages, and uses AI to extract structured job information for frontend consumption.
+
+**NEW**: Now supports running AI models locally with Ollama to avoid API rate limits!
 
 ## Features
 
 - **Excel Integration**: Read company data from Excel sheets
 - **Web Scraping**: Automatically scrape company job pages
-- **AI Job Extraction**: Use LangChain and Groq (LLaMA 3.1 70B) to analyze and extract job details
+- **AI Job Extraction**: Use LangChain with either:
+  - **Groq** (LLaMA 3.1/4 models) - Cloud-based, fast, free tier available
+  - **Ollama** (LLaMA 3.1/3.2 or other models) - Run AI locally, no API keys needed, no rate limits
 - **REST API**: FastAPI-based REST API with single GET endpoint
 - **Structured JSON Output**: Returns job data matching frontend TypeScript interfaces
 
 ## Architecture
 
 ```
-Excel File (src/data/excel.xls) → Excel Reader → Website Scraper → Groq AI Agent → Table JSON Response
+Excel File (src/data/excel.xls) → Excel Reader → Website Scraper → AI Agent (Groq/Ollama) → Table JSON Response
 ```
 
 ## Requirements
 
 - Python 3.8+
-- Groq API Key (for AI-powered job extraction)
+- **Option 1 (Cloud-based)**: Groq API Key (for cloud-based AI-powered job extraction)
+- **Option 2 (Local)**: Ollama installed and running (for local AI-powered job extraction, no API key needed)
 
 ## Installation
 
@@ -45,19 +50,64 @@ pip install -r requirements.txt
 
 ### 4. Configure environment variables
 
-
 Copy the example environment file and update with your settings:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and add your Groq API key:
+**Choose your AI provider:**
+
+#### Option A: Using Groq (Cloud-based, requires API key)
+
+Edit `.env` and configure Groq:
 ```
+AI_PROVIDER=groq
 GROQ_API_KEY=your_actual_groq_api_key_here
 ```
 
 You can get a free Groq API key at: https://console.groq.com/
+
+**Note:** Groq has rate limits on the free tier. If you hit rate limits frequently, consider using Ollama instead.
+
+#### Option B: Using Ollama (Local, no API key needed)
+
+**Step 1: Install Ollama**
+
+Visit https://ollama.ai and download Ollama for your operating system:
+- **macOS**: Download the .dmg file and install
+- **Linux**: Run `curl -fsSL https://ollama.ai/install.sh | sh`
+- **Windows**: Download the installer from the website
+
+**Step 2: Start Ollama and pull a model**
+
+```bash
+# Start Ollama (if not already running)
+ollama serve
+
+# In a new terminal, pull the recommended model (8B parameter version)
+ollama pull llama3.1:8b
+
+# Or for better quality (requires more RAM/VRAM):
+ollama pull llama3.1:70b
+```
+
+**Step 3: Configure the application**
+
+Edit `.env` and configure Ollama:
+```
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:8b
+AI_RATE_LIMIT_DELAY=0  # No rate limiting needed for local AI
+```
+
+**Available Ollama models:**
+- `llama3.1:8b` - Recommended, good balance of speed and quality (8GB RAM required)
+- `llama3.1:70b` - Best quality, slower (40GB RAM required)
+- `llama3.2:8b` - Latest version, similar to 3.1
+- `mistral:7b` - Alternative, good performance
+- See more at: https://ollama.ai/library
 
 ### 5. Create sample Excel file
 
@@ -237,13 +287,23 @@ fetch('http://localhost:8000/jobs')
 
 #### GET /health
 
-Check if the API is running and Groq is configured.
+Check if the API is running and AI provider is configured.
 
 **Response:**
 ```json
 {
   "status": "healthy",
-  "groq_configured": true
+  "ai_provider": "groq",
+  "ai_configured": true
+}
+```
+
+or for Ollama:
+```json
+{
+  "status": "healthy",
+  "ai_provider": "ollama",
+  "ai_configured": true
 }
 ```
 
@@ -267,7 +327,7 @@ application-information-backend/
 │   ├── services/
 │   │   ├── excel_reader.py     # Excel file reading service
 │   │   ├── web_scraper.py      # Website scraping service
-│   │   ├── ai_agent.py         # Groq AI agent for job extraction
+│   │   ├── ai_agent.py         # AI agent for job extraction (Groq/Ollama)
 │   │   └── processor.py        # Job processing orchestration
 │   └── utils/
 ├── src/
@@ -285,11 +345,11 @@ application-information-backend/
 
 1. **Excel Reading**: The system reads company entries from `src/data/excel.xls` using `ExcelReader`
 2. **Web Scraping**: For each entry, `WebScraper` visits the jobs page (websiteToJobs or website) and extracts text content
-3. **AI Analysis**: `AIAgent` uses LangChain and Groq (LLaMA 3.1 70B) to:
+3. **AI Analysis**: `AIAgent` uses LangChain with your chosen provider (Groq or Ollama) to:
    - Analyze job page content
    - Extract structured job information for **ALL jobs found** (title, salary, home office, etc.)
    - Determine if positions are available
-   - Apply rate limiting between API calls to avoid throttling
+   - Apply rate limiting between API calls (for Groq) to avoid throttling
 4. **JSON Response**: All data is structured into a Table with TableRow objects matching the frontend interface
    - **Multiple jobs per company**: If a company has 3 jobs, 3 separate TableRow entries are returned
 
@@ -298,8 +358,15 @@ application-information-backend/
 All configuration is managed through environment variables (`.env` file):
 
 ```bash
-# Groq API Configuration
+# AI Provider (choose one)
+AI_PROVIDER=groq  # or "ollama" for local AI
+
+# Groq API Configuration (only needed if AI_PROVIDER=groq)
 GROQ_API_KEY=your_groq_api_key_here
+
+# Ollama Configuration (only needed if AI_PROVIDER=ollama)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:8b
 
 # Application Configuration
 APP_HOST=0.0.0.0
@@ -314,6 +381,8 @@ MAX_CONCURRENT_REQUESTS=5
 REQUEST_TIMEOUT=30
 
 # AI Rate Limiting (seconds between API calls)
+# For Groq: 2 seconds recommended to avoid rate limits
+# For Ollama: 0 or 1 (no rate limiting needed for local AI)
 AI_RATE_LIMIT_DELAY=2
 ```
 
@@ -345,33 +414,64 @@ flake8 app/
 
 ## Limitations and Considerations
 
-- **Rate Limiting**: Be mindful of rate limits when scraping websites
-- **Processing Time**: Each company entry requires scraping and AI analysis (typically 5-15 seconds per company)
-- **API Costs**: Groq API has generous free tier, but usage is rate-limited
+- **Rate Limiting**: 
+  - **Groq**: Be mindful of API rate limits on the free tier. Consider using Ollama if you hit limits frequently.
+  - **Ollama**: No rate limits, but processing may be slower depending on your hardware.
+  - **Web Scraping**: Be respectful of rate limits when scraping websites
+- **Processing Time**: 
+  - Each company entry requires scraping and AI analysis
+  - **Groq**: Typically 5-15 seconds per company (fast cloud processing)
+  - **Ollama**: Varies by hardware (8B model: 10-30 seconds, 70B model: 30-120 seconds per company)
+- **API Costs**: 
+  - **Groq**: Free tier available but rate-limited
+  - **Ollama**: Completely free, runs locally, no API costs
+- **Hardware Requirements (Ollama only)**:
+  - 8B models: 8GB RAM minimum, 16GB recommended
+  - 70B models: 40GB RAM minimum, GPU recommended for better performance
 - **Content Accuracy**: AI extraction depends on the structure and clarity of the job page content
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **"Groq API key not set"**
+1. **"Groq API key not set"** (when using AI_PROVIDER=groq)
    - Ensure you've set `GROQ_API_KEY` in your `.env` file
    - Get a free API key at https://console.groq.com/
    - Restart the server after updating `.env`
+   - Alternative: Switch to Ollama for local AI without API keys
 
-2. **"Excel file not found"**
+2. **"Failed to initialize Ollama"** (when using AI_PROVIDER=ollama)
+   - Make sure Ollama is installed and running: `ollama serve`
+   - Verify the model is downloaded: `ollama list`
+   - If not downloaded, pull it: `ollama pull llama3.1:8b`
+   - Check that OLLAMA_BASE_URL in `.env` matches where Ollama is running
+   - Default is `http://localhost:11434`
+
+3. **"Ollama provider selected but langchain-ollama is not installed"**
+   - Install the Ollama dependency: `pip install langchain-ollama`
+   - Or reinstall all dependencies: `pip install -r requirements.txt`
+
+4. **"Excel file not found"**
    - Run `python create_sample_excel.py` to create the sample file
    - Ensure the file is at `src/data/excel.xls`
    - Check the path in `.env` is correct
 
-3. **Import errors**
+5. **Import errors**
    - Make sure all dependencies are installed: `pip install -r requirements.txt`
    - Activate your virtual environment
 
-4. **Slow processing**
-   - Consider reducing the number of companies in the Excel file
-   - Check your internet connection
-   - Groq API rate limits may cause delays
+6. **Slow processing**
+   - **For Groq**: Check your internet connection, API rate limits may cause delays
+   - **For Ollama**: 
+     - Use a smaller model (e.g., `llama3.1:8b` instead of `llama3.1:70b`)
+     - Ensure adequate RAM/VRAM available
+     - Consider using GPU acceleration if available
+     - Reduce `AI_RATE_LIMIT_DELAY` to 0 or 1 in `.env`
+   - Consider reducing the number of companies in the Excel file for testing
+
+7. **Groq rate limit errors**
+   - Increase `AI_RATE_LIMIT_DELAY` in `.env` (try 3-5 seconds)
+   - Consider switching to Ollama for unlimited local processing
 
 ## License
 
