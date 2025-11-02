@@ -1,4 +1,3 @@
-from langchain_groq import ChatGroq
 from typing import Dict, Any, List, Optional
 import logging
 from app.config import settings
@@ -7,13 +6,12 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# Import Ollama only if AI_PROVIDER is set to ollama
+# Import Ollama
 try:
     from langchain_ollama import ChatOllama
 except ImportError:
     ChatOllama = None
-    if settings.AI_PROVIDER == "ollama":
-        logger.warning("langchain-ollama is not installed. Install it with: pip install langchain-ollama")
+    logger.warning("langchain-ollama is not installed. Install it with: pip install langchain-ollama")
 
 # Job types to exclude from results (trainee, internship, student positions)
 EXCLUDED_JOB_TYPES = [
@@ -43,45 +41,28 @@ EXCLUDED_QUALIFICATIONS = [
 
 
 class AIAgent:
-    """LangChain AI Agent using Groq or Ollama for analyzing job information from websites"""
+    """LangChain AI Agent using Ollama for analyzing job information from websites"""
     
     def __init__(self):
-        self.provider = settings.AI_PROVIDER
+        self.provider = "ollama"
         self.enabled = False
         self.llm: Optional[Any] = None
         
-        if self.provider == "groq":
-            if not settings.GROQ_API_KEY:
-                logger.warning("Groq API key not set. AI analysis will be disabled.")
-                return
-            
+        if ChatOllama is None:
+            logger.error("Ollama provider requires langchain-ollama. Install it with: pip install langchain-ollama")
+            return
+        
+        try:
             self.enabled = True
-            self.llm = ChatGroq(
-                model="meta-llama/llama-4-scout-17b-16e-instruct",
-                temperature=0.3,
-                groq_api_key=settings.GROQ_API_KEY
+            self.llm = ChatOllama(
+                model=settings.OLLAMA_MODEL,
+                base_url=settings.OLLAMA_BASE_URL,
+                temperature=0.3
             )
-            logger.info("AI Agent initialized with Groq provider")
-            
-        elif self.provider == "ollama":
-            if ChatOllama is None:
-                logger.error("Ollama provider selected but langchain-ollama is not installed. Install it with: pip install langchain-ollama")
-                return
-            
-            try:
-                self.enabled = True
-                self.llm = ChatOllama(
-                    model=settings.OLLAMA_MODEL,
-                    base_url=settings.OLLAMA_BASE_URL,
-                    temperature=0.3
-                )
-                logger.info(f"AI Agent initialized with Ollama provider (model: {settings.OLLAMA_MODEL}, base_url: {settings.OLLAMA_BASE_URL})")
-            except Exception as e:
-                logger.error(f"Failed to initialize Ollama: {str(e)}. Make sure Ollama is running at {settings.OLLAMA_BASE_URL}")
-                self.enabled = False
-                return
-        else:
-            logger.error(f"Unknown AI provider: {self.provider}. Supported providers are 'groq' and 'ollama'.")
+            logger.info(f"AI Agent initialized with Ollama provider (model: {settings.OLLAMA_MODEL}, base_url: {settings.OLLAMA_BASE_URL})")
+        except Exception as e:
+            logger.error(f"Failed to initialize Ollama: {str(e)}. Make sure Ollama is running at {settings.OLLAMA_BASE_URL}")
+            self.enabled = False
             return
         
         # Initialize to current time to avoid artificial delay on first call
@@ -119,7 +100,7 @@ class AIAgent:
         if not self.enabled:
             return [{
                 "hasJob": False,
-                "comments": "AI analysis disabled - Groq API key not configured"
+                "comments": "AI analysis disabled - langchain-ollama not installed or Ollama not running"
             }]
         
         try:

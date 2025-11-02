@@ -1,6 +1,6 @@
 """
 Test for Ollama integration.
-This test verifies that the AI agent can be configured to use Ollama.
+This test verifies that the AI agent is configured to use Ollama.
 """
 
 import sys
@@ -11,36 +11,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def test_ollama_provider_selection():
-    """Test that Ollama provider can be selected"""
-    os.environ['AI_PROVIDER'] = 'ollama'
-    
+    """Test that Ollama provider is selected"""
     from app.config import settings
     assert settings.AI_PROVIDER == 'ollama'
     print("✓ Ollama provider selection test passed")
 
 
-def test_groq_provider_selection():
-    """Test that Groq provider is the default"""
-    os.environ.pop('AI_PROVIDER', None)
-    
-    # Reload settings
-    import importlib
-    from app import config
-    importlib.reload(config)
-    from app.config import settings
-    
-    assert settings.AI_PROVIDER == 'groq'
-    print("✓ Groq provider selection test passed")
-
-
 def test_ollama_config_defaults():
     """Test that Ollama configuration has correct defaults"""
-    os.environ['AI_PROVIDER'] = 'ollama'
-    
-    # Reload settings
-    import importlib
-    from app import config
-    importlib.reload(config)
     from app.config import settings
     
     assert settings.OLLAMA_BASE_URL == 'http://localhost:11434'
@@ -48,37 +26,9 @@ def test_ollama_config_defaults():
     print("✓ Ollama configuration defaults test passed")
 
 
-def test_ai_agent_with_groq_provider():
-    """Test AIAgent initialization with Groq provider"""
-    os.environ['AI_PROVIDER'] = 'groq'
-    os.environ.pop('GROQ_API_KEY', None)  # Ensure no API key is set
-    
-    # Reload modules
-    import importlib
-    from app import config
-    importlib.reload(config)
-    
-    from app.services.ai_agent import AIAgent
-    agent = AIAgent()
-    
-    assert agent.provider == 'groq'
-    assert not agent.enabled  # Should be disabled without API key
-    print("✓ AIAgent with Groq provider test passed")
-
-
 def test_ai_agent_with_ollama_provider():
     """Test AIAgent initialization with Ollama provider (without langchain-ollama installed)"""
-    os.environ['AI_PROVIDER'] = 'ollama'
-    os.environ.pop('GROQ_API_KEY', None)  # Ensure Groq API key is not set
-    
-    # Reload modules to pick up new environment
-    import importlib
-    from app import config
-    importlib.reload(config)
-    
-    # Import after reload
-    from app.services import ai_agent
-    importlib.reload(ai_agent)
+    # Import after environment setup
     from app.services.ai_agent import AIAgent
     
     agent = AIAgent()
@@ -89,22 +39,6 @@ def test_ai_agent_with_ollama_provider():
     print("✓ AIAgent with Ollama provider test passed")
 
 
-def test_invalid_provider():
-    """Test AIAgent initialization with invalid provider"""
-    os.environ['AI_PROVIDER'] = 'invalid'
-    
-    # Reload modules
-    import importlib
-    from app import config
-    importlib.reload(config)
-    
-    from app.services.ai_agent import AIAgent
-    agent = AIAgent()
-    
-    assert not agent.enabled  # Should be disabled with invalid provider
-    print("✓ Invalid provider test passed")
-
-
 def run_all_tests():
     """Run all tests"""
     print("\n" + "=" * 60)
@@ -113,11 +47,8 @@ def run_all_tests():
     
     tests = [
         test_ollama_provider_selection,
-        test_groq_provider_selection,
         test_ollama_config_defaults,
-        test_ai_agent_with_groq_provider,
         test_ai_agent_with_ollama_provider,
-        test_invalid_provider,
     ]
     
     passed = 0
