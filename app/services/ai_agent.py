@@ -69,7 +69,8 @@ class AIAgent:
         self.last_api_call_time = time.time()
         self.min_delay_between_calls = settings.AI_RATE_LIMIT_DELAY  # configurable delay
         # Maximum content length to send to AI (tokens limit consideration)
-        self.max_content_length = 10000
+        # Reduced from 10000 to 8000 for better performance
+        self.max_content_length = 8000
     
     def _rate_limit(self):
         """Implement rate limiting by adding delays between API calls"""

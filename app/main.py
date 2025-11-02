@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 import logging
 import os
+import json
 from app.config import settings
 from app.models import Table
 from app.services.processor import JobProcessor
@@ -60,39 +62,113 @@ async def get_jobs():
     """
     Process all company entries from Excel and extract job information.
     
-    This endpoint:
-    - Reads company entries from the Excel file (src/data/excel.xls)
-    - Scrapes each company's jobs page
-    - Uses AI to analyze and extract job details
-    - Returns structured job information matching the frontend Table interface
+    This endpoint processes entries sequentially:
+    - Scrapes each website
+    - Sends to AI for analysis
+    - Adds to response
+    - Then moves to the next website
+    
+    This approach is more efficient than processing all links at once.
     
     Returns:
         Table with rows containing job information for each company
     """
     try:
         # Check if Excel file exists
-        logger.info(f"Überprüfe, ob die Datei existiert: {settings.EXCEL_FILE_PATH}")
+        logger.info(f"Checking if file exists: {settings.EXCEL_FILE_PATH}")
         if not os.path.exists(settings.EXCEL_FILE_PATH):
-            logger.error(f"Excel-Datei nicht gefunden: {settings.EXCEL_FILE_PATH}")
+            logger.error(f"Excel file not found: {settings.EXCEL_FILE_PATH}")
             raise HTTPException(
                 status_code=404,
-                detail=f"Excel-Datei nicht gefunden unter {settings.EXCEL_FILE_PATH}"
+                detail=f"Excel file not found at {settings.EXCEL_FILE_PATH}"
             )
 
-        # JobProcessor erstellen und Jobs verarbeiten
-        logger.info("Erstelle JobProcessor und starte Verarbeitung...")
+        # Create JobProcessor and start processing
+        logger.info("Creating JobProcessor and starting processing...")
 
-
-        # Create processor and process jobs
+        # Create processor and process jobs incrementally
         processor = JobProcessor(
             excel_path=settings.EXCEL_FILE_PATH,
             timeout=settings.REQUEST_TIMEOUT
         )
         
-        table = processor.process_all_jobs()
+        # Collect all rows from incremental processing
+        rows = []
+        for row in processor.process_jobs_incrementally():
+            rows.append(row)
         
-        logger.info(f"Successfully processed {len(table.rows)} companies")
+        table = Table(rows=rows)
+        
+        logger.info(f"Successfully processed {len(table.rows)} job entries")
         return table
+        
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    except Exception as e:
+        logger.error(f"Error processing jobs: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/jobs/stream")
+async def get_jobs_stream():
+    """
+    Process company entries from Excel and stream job information as they are processed.
+    
+    This endpoint provides incremental results, processing one company at a time:
+    - Scrapes each website
+    - Sends to AI for analysis
+    - Streams the result
+    - Then moves to the next company
+    
+    This approach is more efficient as results are available immediately rather than
+    waiting for all companies to be processed.
+    
+    Returns:
+        Streaming response with job information
+    """
+    try:
+        # Check if Excel file exists
+        if not os.path.exists(settings.EXCEL_FILE_PATH):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Excel file not found at {settings.EXCEL_FILE_PATH}"
+            )
+
+        # Create processor
+        processor = JobProcessor(
+            excel_path=settings.EXCEL_FILE_PATH,
+            timeout=settings.REQUEST_TIMEOUT
+        )
+        
+        async def generate():
+            """Generate streaming response"""
+            rows = []
+            
+            # Start JSON response
+            yield '{"rows": ['
+            
+            first = True
+            for row in processor.process_jobs_incrementally():
+                if not first:
+                    yield ','
+                first = False
+                
+                # Convert TableRow to dict for JSON serialization
+                row_dict = row.model_dump(mode='json')
+                yield json.dumps(row_dict)
+                rows.append(row)
+            
+            # End JSON response
+            yield ']}'
+            
+            logger.info(f"Successfully streamed {len(rows)} job entries")
+        
+        return StreamingResponse(
+            generate(),
+            media_type="application/json"
+        )
         
     except FileNotFoundError as e:
         logger.error(f"File not found: {str(e)}")
