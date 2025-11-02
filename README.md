@@ -81,7 +81,6 @@ Edit `.env` and configure Ollama:
 ```
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.1:8b
-AI_RATE_LIMIT_DELAY=0  # No rate limiting needed for local AI
 ```
 
 **Available Ollama models:**
@@ -344,10 +343,6 @@ EXCEL_FILE_PATH=data/Landratsamt.xlsx
 # Processing Configuration
 MAX_CONCURRENT_REQUESTS=5
 REQUEST_TIMEOUT=30
-
-# AI Rate Limiting (seconds between AI calls)
-# For Ollama: 0 or 1 (no rate limiting needed for local AI)
-AI_RATE_LIMIT_DELAY=0
 ```
 
 ## Development
@@ -379,7 +374,7 @@ flake8 app/
 ## Limitations and Considerations
 
 - **Rate Limiting**: 
-  - **Ollama**: No rate limits, but processing may be slower depending on your hardware.
+  - **Ollama**: No rate limits, processing speed depends on your hardware
   - **Web Scraping**: Be respectful of rate limits when scraping websites
 - **Processing Time**: 
   - Each company entry requires scraping and AI analysis
@@ -420,7 +415,6 @@ flake8 app/
      - Use a smaller model (e.g., `llama3.1:8b` instead of `llama3.1:70b`)
      - Ensure adequate RAM/VRAM available
      - Consider using GPU acceleration if available
-     - Reduce `AI_RATE_LIMIT_DELAY` to 0 in `.env`
    - Consider reducing the number of companies in the Excel file for testing
 
 ## License
