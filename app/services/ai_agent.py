@@ -13,18 +13,26 @@ except ImportError:
     ChatOllama = None
     logger.warning("langchain-ollama is not installed. Install it with: pip install langchain-ollama")
 
-# Import common connection error types
-try:
-    import requests
-    ConnectionErrors = (ConnectionRefusedError, ConnectionError, requests.exceptions.ConnectionError)
-except ImportError:
-    ConnectionErrors = (ConnectionRefusedError, ConnectionError)
+# Build tuple of connection error types to handle
+def _get_connection_errors():
+    """Get tuple of connection error types based on available libraries"""
+    errors = [ConnectionRefusedError, ConnectionError]
+    
+    try:
+        import requests
+        errors.append(requests.exceptions.ConnectionError)
+    except ImportError:
+        pass
+    
+    try:
+        import httpx
+        errors.append(httpx.ConnectError)
+    except ImportError:
+        pass
+    
+    return tuple(errors)
 
-try:
-    import httpx
-    ConnectionErrors = ConnectionErrors + (httpx.ConnectError,)
-except ImportError:
-    pass
+ConnectionErrors = _get_connection_errors()
 
 # Job types to exclude from results (trainee, internship, student positions)
 EXCLUDED_JOB_TYPES = [
@@ -191,10 +199,10 @@ Weitere wichtige Regeln:
             
         except ConnectionErrors as e:
             logger.error(f"Connection error when connecting to Ollama at {settings.OLLAMA_BASE_URL}: {str(e)}")
-            logger.error("Please ensure Ollama is running: ollama serve")
+            logger.error("Please ensure Ollama is running with: ollama serve")
             return [{
                 "hasJob": False,
-                "comments": f"Cannot connect to Ollama. Please ensure Ollama is running at {settings.OLLAMA_BASE_URL}. Run: ollama serve"
+                "comments": f"Cannot connect to Ollama at {settings.OLLAMA_BASE_URL}. Please start Ollama: ollama serve"
             }]
         except json.JSONDecodeError as e:
             logger.error(f"Error parsing AI response as JSON: {str(e)}")
