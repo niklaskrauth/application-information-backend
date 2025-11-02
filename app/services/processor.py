@@ -82,6 +82,49 @@ class JobProcessor:
         logger.info(f"Completed processing - found {len(rows)} total job entries")
         return Table(rows=rows)
     
+    def process_jobs_incrementally(self):
+        """
+        Process company entries one at a time and yield results incrementally.
+        
+        This generator processes each website sequentially:
+        1. Scrapes the website
+        2. Sends content to AI
+        3. Yields the results
+        4. Moves to the next website
+        
+        This approach is more efficient as it provides results immediately
+        rather than waiting for all processing to complete.
+        
+        Yields:
+            TableRow objects as they are processed
+        """
+        logger.info("Starting incremental job processing")
+        
+        # Read entries from Excel
+        entries = self.excel_reader.read_entries()
+        logger.info(f"Found {len(entries)} entries to process incrementally")
+        
+        for entry in entries:
+            try:
+                # Process single entry and get rows
+                entry_rows = self._process_single_entry_incremental(entry)
+                # Yield each row as it's produced
+                for row in entry_rows:
+                    yield row
+            except Exception as e:
+                logger.error(f"Error processing entry {entry.location}: {str(e)}")
+                # Create a basic row with error info
+                row = TableRow(
+                    location=entry.location,
+                    website=entry.website,
+                    websiteToJobs=entry.websiteToJobs or entry.website,
+                    hasJob=False,
+                    comments=f"Error processing: {str(e)}"
+                )
+                yield row
+        
+        logger.info("Completed incremental processing")
+    
     def _process_single_entry(self, entry: WebsiteEntry) -> List[TableRow]:
         """
         Process a single company entry to extract job information.
@@ -188,3 +231,177 @@ class JobProcessor:
         
         logger.info(f"Successfully processed {entry.location}: found {len(rows)} job(s)")
         return rows
+    
+    def _process_single_entry_incremental(self, entry: WebsiteEntry) -> List[TableRow]:
+        """
+        Process a single company entry incrementally to extract job information.
+        
+        This method processes content incrementally:
+        1. Scrapes the main page and sends to AI
+        2. Then processes PDFs one by one
+        3. Then processes job detail pages one by one
+        
+        Each piece of content is analyzed separately and results are yielded immediately.
+        
+        Args:
+            entry: WebsiteEntry to process
+            
+        Returns:
+            List of TableRow objects (one per job found)
+        """
+        logger.info(f"Processing entry incrementally: {entry.location}")
+        
+        # Determine which URL to scrape (jobs page if available, otherwise main website)
+        scrape_url = entry.websiteToJobs if entry.websiteToJobs else entry.website
+        
+        # Scrape the jobs page
+        try:
+            page_text, links = self.web_scraper.scrape_website(scrape_url)
+        except Exception as e:
+            logger.error(f"Error scraping {scrape_url}: {str(e)}")
+            return [TableRow(
+                location=entry.location,
+                website=entry.website,
+                websiteToJobs=entry.websiteToJobs or entry.website,
+                hasJob=False,
+                comments=f"Error scraping website: {str(e)}"
+            )]
+        
+        all_rows = []
+        
+        # First, process main page content
+        logger.info(f"Processing main page for {entry.location}")
+        main_page_content = f"Main page content:\n{page_text[:10000]}"
+        
+        jobs_info_list = self.ai_agent.extract_multiple_jobs(
+            location=entry.location,
+            website=entry.website,
+            website_to_jobs=scrape_url,
+            page_content=main_page_content
+        )
+        
+        # Convert jobs to TableRow objects
+        for job_info in jobs_info_list:
+            application_date = None
+            date_str = job_info.get('applicationDate')
+            if date_str:
+                application_date = self._parse_date(date_str)
+            
+            row = TableRow(
+                location=entry.location,
+                website=entry.website,
+                websiteToJobs=entry.websiteToJobs or entry.website,
+                hasJob=job_info.get('hasJob', False),
+                name=job_info.get('name'),
+                salary=job_info.get('salary'),
+                homeOfficeOption=job_info.get('homeOfficeOption'),
+                period=job_info.get('period'),
+                employmentType=job_info.get('employmentType'),
+                applicationDate=application_date,
+                foundOn=job_info.get('foundOn') or 'Main page',
+                comments=job_info.get('comments')
+            )
+            all_rows.append(row)
+        
+        # Process PDFs one by one (limit to first 2 for efficiency)
+        pdf_links = [link for link in links if link.link_type == 'pdf']
+        for pdf_link in pdf_links[:2]:
+            logger.info(f"Processing PDF: {pdf_link.url}")
+            try:
+                pdf_text = self.content_extractor.extract_pdf_content(pdf_link.url)
+                if pdf_text:
+                    pdf_content = f"PDF content from '{pdf_link.title or pdf_link.url}':\n{pdf_text[:10000]}"
+                    
+                    jobs_info_list = self.ai_agent.extract_multiple_jobs(
+                        location=entry.location,
+                        website=entry.website,
+                        website_to_jobs=scrape_url,
+                        page_content=pdf_content
+                    )
+                    
+                    for job_info in jobs_info_list:
+                        if job_info.get('hasJob', False):  # Only add if job was found
+                            application_date = None
+                            date_str = job_info.get('applicationDate')
+                            if date_str:
+                                application_date = self._parse_date(date_str)
+                            
+                            row = TableRow(
+                                location=entry.location,
+                                website=entry.website,
+                                websiteToJobs=entry.websiteToJobs or entry.website,
+                                hasJob=job_info.get('hasJob', False),
+                                name=job_info.get('name'),
+                                salary=job_info.get('salary'),
+                                homeOfficeOption=job_info.get('homeOfficeOption'),
+                                period=job_info.get('period'),
+                                employmentType=job_info.get('employmentType'),
+                                applicationDate=application_date,
+                                foundOn=f"PDF: {pdf_link.title or 'document'}",
+                                comments=job_info.get('comments')
+                            )
+                            all_rows.append(row)
+            except Exception as e:
+                logger.warning(f"Could not process PDF {pdf_link.url}: {str(e)}")
+        
+        # Process job detail pages one by one (limit to first 2 for efficiency)
+        job_related_keywords = ['job', 'career', 'position', 'vacancy', 'opening', 'stelle', 'karriere']
+        job_links = []
+        
+        for link in links:
+            if link.link_type == 'webpage':
+                link_text = (link.title or '').lower()
+                link_url = link.url.lower()
+                if any(keyword in link_text or keyword in link_url for keyword in job_related_keywords):
+                    job_links.append(link)
+        
+        for job_link in job_links[:2]:
+            logger.info(f"Processing job detail page: {job_link.url}")
+            try:
+                linked_page_text, _ = self.web_scraper.scrape_website(job_link.url)
+                page_content = f"Job detail page '{job_link.title or job_link.url}':\n{linked_page_text[:10000]}"
+                
+                jobs_info_list = self.ai_agent.extract_multiple_jobs(
+                    location=entry.location,
+                    website=entry.website,
+                    website_to_jobs=scrape_url,
+                    page_content=page_content
+                )
+                
+                for job_info in jobs_info_list:
+                    if job_info.get('hasJob', False):  # Only add if job was found
+                        application_date = None
+                        date_str = job_info.get('applicationDate')
+                        if date_str:
+                            application_date = self._parse_date(date_str)
+                        
+                        row = TableRow(
+                            location=entry.location,
+                            website=entry.website,
+                            websiteToJobs=entry.websiteToJobs or entry.website,
+                            hasJob=job_info.get('hasJob', False),
+                            name=job_info.get('name'),
+                            salary=job_info.get('salary'),
+                            homeOfficeOption=job_info.get('homeOfficeOption'),
+                            period=job_info.get('period'),
+                            employmentType=job_info.get('employmentType'),
+                            applicationDate=application_date,
+                            foundOn=f"Page: {job_link.title or job_link.url}",
+                            comments=job_info.get('comments')
+                        )
+                        all_rows.append(row)
+            except Exception as e:
+                logger.warning(f"Could not process job link {job_link.url}: {str(e)}")
+        
+        # If no jobs were found at all, add a no-jobs-found entry
+        if not all_rows or not any(row.hasJob for row in all_rows):
+            all_rows = [TableRow(
+                location=entry.location,
+                website=entry.website,
+                websiteToJobs=entry.websiteToJobs or entry.website,
+                hasJob=False,
+                comments="No jobs found"
+            )]
+        
+        logger.info(f"Successfully processed {entry.location} incrementally: found {len(all_rows)} job(s)")
+        return all_rows
