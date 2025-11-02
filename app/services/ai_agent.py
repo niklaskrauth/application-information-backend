@@ -6,12 +6,25 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# Import Ollama
+# Import Ollama and handle connection errors
 try:
     from langchain_ollama import ChatOllama
 except ImportError:
     ChatOllama = None
     logger.warning("langchain-ollama is not installed. Install it with: pip install langchain-ollama")
+
+# Import common connection error types
+try:
+    import requests
+    ConnectionErrors = (ConnectionRefusedError, ConnectionError, requests.exceptions.ConnectionError)
+except ImportError:
+    ConnectionErrors = (ConnectionRefusedError, ConnectionError)
+
+try:
+    import httpx
+    ConnectionErrors = ConnectionErrors + (httpx.ConnectError,)
+except ImportError:
+    pass
 
 # Job types to exclude from results (trainee, internship, student positions)
 EXCLUDED_JOB_TYPES = [
@@ -105,9 +118,6 @@ class AIAgent:
             included_terms = '", "'.join(INCLUDED_JOB_TYPES)
             excluded_qualifications = '", "'.join(EXCLUDED_QUALIFICATIONS)
             
-            # Use full page_content without length limit
-            content_to_analyze = page_content
-            
             prompt = f"""
 Sie analysieren eine Unternehmenswebseite, um Informationen über ALLE verfügbaren Verwaltungsstellen zu extrahieren.
 
@@ -116,7 +126,7 @@ Unternehmenswebseite: {website}
 Stellenseite: {website_to_jobs}
 
 Inhalt der Stellenseite:
-{content_to_analyze}
+{page_content}
 
 Bitte analysieren Sie diesen Inhalt und extrahieren Sie Informationen für ALLE gefundenen Stellenangebote. Geben Sie ein JSON-Array zurück, wobei jedes Element eine Stelle repräsentiert:
 [
@@ -179,29 +189,25 @@ Weitere wichtige Regeln:
             logger.info(f"Successfully extracted {len(result)} job(s) for {location}")
             return result
             
-        except ConnectionRefusedError as e:
-            logger.error(f"Connection refused when connecting to Ollama at {settings.OLLAMA_BASE_URL}: {str(e)}")
+        except ConnectionErrors as e:
+            logger.error(f"Connection error when connecting to Ollama at {settings.OLLAMA_BASE_URL}: {str(e)}")
             logger.error("Please ensure Ollama is running: ollama serve")
             return [{
                 "hasJob": False,
                 "comments": f"Cannot connect to Ollama. Please ensure Ollama is running at {settings.OLLAMA_BASE_URL}. Run: ollama serve"
             }]
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing AI response as JSON: {str(e)}")
+            return [{
+                "hasJob": False,
+                "comments": f"Error parsing AI response: {str(e)}"
+            }]
         except Exception as e:
-            # Check if it's a connection error
-            error_str = str(e).lower()
-            if 'connection refused' in error_str or 'errno 61' in error_str:
-                logger.error(f"Connection refused when connecting to Ollama: {str(e)}")
-                logger.error(f"Please ensure Ollama is running at {settings.OLLAMA_BASE_URL}")
-                return [{
-                    "hasJob": False,
-                    "comments": f"Cannot connect to Ollama at {settings.OLLAMA_BASE_URL}. Please ensure Ollama is running (run: ollama serve)"
-                }]
-            else:
-                logger.error(f"Error analyzing content: {str(e)}")
-                return [{
-                    "hasJob": False,
-                    "comments": f"Error analyzing content: {str(e)}"
-                }]
+            logger.error(f"Error analyzing content: {str(e)}")
+            return [{
+                "hasJob": False,
+                "comments": f"Error analyzing content: {str(e)}"
+            }]
     
     def extract_job_info(self, location: str, website: str, website_to_jobs: str, page_content: str) -> Dict[str, Any]:
         """
