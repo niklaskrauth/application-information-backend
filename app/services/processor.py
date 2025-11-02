@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 class JobProcessor:
     """Processor for extracting job information from company websites"""
     
+    # Content truncation limits
+    MAX_CONTENT_PER_SOURCE = 10000  # Maximum characters per content source
+    
     def __init__(self, excel_path: str, timeout: int = 30):
         self.excel_reader = ExcelReader(excel_path)
         self.web_scraper = WebScraper(timeout=timeout)
@@ -47,6 +50,39 @@ class JobProcessor:
                 except (ValueError, TypeError):
                     logger.warning(f"Could not parse date string: {date_str}")
                     return None
+    
+    def _create_table_row(self, entry: WebsiteEntry, job_info: Dict[str, Any], found_on: Optional[str] = None) -> TableRow:
+        """
+        Create a TableRow object from job information.
+        
+        Args:
+            entry: WebsiteEntry with company information
+            job_info: Dictionary with job information from AI
+            found_on: Optional source information (overrides job_info['foundOn'])
+            
+        Returns:
+            TableRow object
+        """
+        # Parse applicationDate if present
+        application_date = None
+        date_str = job_info.get('applicationDate')
+        if date_str:
+            application_date = self._parse_date(date_str)
+        
+        return TableRow(
+            location=entry.location,
+            website=entry.website,
+            websiteToJobs=entry.websiteToJobs or entry.website,
+            hasJob=job_info.get('hasJob', False),
+            name=job_info.get('name'),
+            salary=job_info.get('salary'),
+            homeOfficeOption=job_info.get('homeOfficeOption'),
+            period=job_info.get('period'),
+            employmentType=job_info.get('employmentType'),
+            applicationDate=application_date,
+            foundOn=found_on or job_info.get('foundOn'),
+            comments=job_info.get('comments')
+        )
     
     def process_all_jobs(self) -> Table:
         """
@@ -207,26 +243,7 @@ class JobProcessor:
         # Create TableRow for each job found
         rows = []
         for job_info in jobs_info_list:
-            # Parse applicationDate if present
-            application_date = None
-            date_str = job_info.get('applicationDate')
-            if date_str:
-                application_date = self._parse_date(date_str)
-            
-            row = TableRow(
-                location=entry.location,
-                website=entry.website,
-                websiteToJobs=entry.websiteToJobs or entry.website,
-                hasJob=job_info.get('hasJob', False),
-                name=job_info.get('name'),
-                salary=job_info.get('salary'),
-                homeOfficeOption=job_info.get('homeOfficeOption'),
-                period=job_info.get('period'),
-                employmentType=job_info.get('employmentType'),
-                applicationDate=application_date,
-                foundOn=job_info.get('foundOn'),
-                comments=job_info.get('comments')
-            )
+            row = self._create_table_row(entry, job_info)
             rows.append(row)
         
         logger.info(f"Successfully processed {entry.location}: found {len(rows)} job(s)")
@@ -271,7 +288,7 @@ class JobProcessor:
         
         # First, process main page content
         logger.info(f"Processing main page for {entry.location}")
-        main_page_content = f"Main page content:\n{page_text[:10000]}"
+        main_page_content = f"Main page content:\n{page_text[:self.MAX_CONTENT_PER_SOURCE]}"
         
         jobs_info_list = self.ai_agent.extract_multiple_jobs(
             location=entry.location,
@@ -282,25 +299,7 @@ class JobProcessor:
         
         # Convert jobs to TableRow objects
         for job_info in jobs_info_list:
-            application_date = None
-            date_str = job_info.get('applicationDate')
-            if date_str:
-                application_date = self._parse_date(date_str)
-            
-            row = TableRow(
-                location=entry.location,
-                website=entry.website,
-                websiteToJobs=entry.websiteToJobs or entry.website,
-                hasJob=job_info.get('hasJob', False),
-                name=job_info.get('name'),
-                salary=job_info.get('salary'),
-                homeOfficeOption=job_info.get('homeOfficeOption'),
-                period=job_info.get('period'),
-                employmentType=job_info.get('employmentType'),
-                applicationDate=application_date,
-                foundOn=job_info.get('foundOn') or 'Main page',
-                comments=job_info.get('comments')
-            )
+            row = self._create_table_row(entry, job_info, found_on='Main page')
             all_rows.append(row)
         
         # Process PDFs one by one (limit to first 2 for efficiency)
@@ -310,7 +309,7 @@ class JobProcessor:
             try:
                 pdf_text = self.content_extractor.extract_pdf_content(pdf_link.url)
                 if pdf_text:
-                    pdf_content = f"PDF content from '{pdf_link.title or pdf_link.url}':\n{pdf_text[:10000]}"
+                    pdf_content = f"PDF content from '{pdf_link.title or pdf_link.url}':\n{pdf_text[:self.MAX_CONTENT_PER_SOURCE]}"
                     
                     jobs_info_list = self.ai_agent.extract_multiple_jobs(
                         location=entry.location,
@@ -321,24 +320,10 @@ class JobProcessor:
                     
                     for job_info in jobs_info_list:
                         if job_info.get('hasJob', False):  # Only add if job was found
-                            application_date = None
-                            date_str = job_info.get('applicationDate')
-                            if date_str:
-                                application_date = self._parse_date(date_str)
-                            
-                            row = TableRow(
-                                location=entry.location,
-                                website=entry.website,
-                                websiteToJobs=entry.websiteToJobs or entry.website,
-                                hasJob=job_info.get('hasJob', False),
-                                name=job_info.get('name'),
-                                salary=job_info.get('salary'),
-                                homeOfficeOption=job_info.get('homeOfficeOption'),
-                                period=job_info.get('period'),
-                                employmentType=job_info.get('employmentType'),
-                                applicationDate=application_date,
-                                foundOn=f"PDF: {pdf_link.title or 'document'}",
-                                comments=job_info.get('comments')
+                            row = self._create_table_row(
+                                entry, 
+                                job_info, 
+                                found_on=f"PDF: {pdf_link.title or 'document'}"
                             )
                             all_rows.append(row)
             except Exception as e:
@@ -359,7 +344,7 @@ class JobProcessor:
             logger.info(f"Processing job detail page: {job_link.url}")
             try:
                 linked_page_text, _ = self.web_scraper.scrape_website(job_link.url)
-                page_content = f"Job detail page '{job_link.title or job_link.url}':\n{linked_page_text[:10000]}"
+                page_content = f"Job detail page '{job_link.title or job_link.url}':\n{linked_page_text[:self.MAX_CONTENT_PER_SOURCE]}"
                 
                 jobs_info_list = self.ai_agent.extract_multiple_jobs(
                     location=entry.location,
@@ -370,24 +355,10 @@ class JobProcessor:
                 
                 for job_info in jobs_info_list:
                     if job_info.get('hasJob', False):  # Only add if job was found
-                        application_date = None
-                        date_str = job_info.get('applicationDate')
-                        if date_str:
-                            application_date = self._parse_date(date_str)
-                        
-                        row = TableRow(
-                            location=entry.location,
-                            website=entry.website,
-                            websiteToJobs=entry.websiteToJobs or entry.website,
-                            hasJob=job_info.get('hasJob', False),
-                            name=job_info.get('name'),
-                            salary=job_info.get('salary'),
-                            homeOfficeOption=job_info.get('homeOfficeOption'),
-                            period=job_info.get('period'),
-                            employmentType=job_info.get('employmentType'),
-                            applicationDate=application_date,
-                            foundOn=f"Page: {job_link.title or job_link.url}",
-                            comments=job_info.get('comments')
+                        row = self._create_table_row(
+                            entry,
+                            job_info,
+                            found_on=f"Page: {job_link.title or job_link.url}"
                         )
                         all_rows.append(row)
             except Exception as e:
