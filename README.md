@@ -395,29 +395,27 @@ flake8 app/
 
 ### Common Issues
 
-1. **"Groq API key not set"** (REMOVED - no longer applicable)
-
-2. **"Failed to initialize Ollama"**
+1. **"Failed to initialize Ollama"**
    - Make sure Ollama is installed and running: `ollama serve`
    - Verify the model is downloaded: `ollama list`
    - If not downloaded, pull it: `ollama pull llama3.1:8b`
    - Check that OLLAMA_BASE_URL in `.env` matches where Ollama is running
    - Default is `http://localhost:11434`
 
-3. **"Ollama provider requires langchain-ollama"**
+2. **"Ollama provider requires langchain-ollama"**
    - Install the Ollama dependency: `pip install langchain-ollama`
    - Or reinstall all dependencies: `pip install -r requirements.txt`
 
-4. **"Excel file not found"**
+3. **"Excel file not found"**
    - Run `python create_sample_excel.py` to create the sample file
    - Ensure the file is at `src/data/excel.xls`
    - Check the path in `.env` is correct
 
-5. **Import errors**
+4. **Import errors**
    - Make sure all dependencies are installed: `pip install -r requirements.txt`
    - Activate your virtual environment
 
-6. **Slow processing**
+5. **Slow processing**
    - **For Ollama**: 
      - Use a smaller model (e.g., `llama3.1:8b` instead of `llama3.1:70b`)
      - Ensure adequate RAM/VRAM available
