@@ -245,7 +245,8 @@ class JobProcessor:
             location=entry.location,
             website=entry.website,
             website_to_jobs=scrape_url,
-            page_content=combined_content
+            page_content=combined_content,
+            source_url=scrape_url
         )
         
         # Create TableRow for each job found
@@ -305,12 +306,13 @@ class JobProcessor:
             location=entry.location,
             website=entry.website,
             website_to_jobs=scrape_url,
-            page_content=main_page_content
+            page_content=main_page_content,
+            source_url=scrape_url
         )
         
         # Convert jobs to TableRow objects (including hasJob=false entries from main page)
         for job_info in jobs_info_list:
-            row = self._create_table_row(entry, job_info, found_on='Main page')
+            row = self._create_table_row(entry, job_info)
             all_rows.append(row)
         
         # Process PDFs one by one (limit to first 1 for efficiency)
@@ -326,16 +328,13 @@ class JobProcessor:
                         location=entry.location,
                         website=entry.website,
                         website_to_jobs=scrape_url,
-                        page_content=pdf_content
+                        page_content=pdf_content,
+                        source_url=pdf_link.url
                     )
                     
                     for job_info in jobs_info_list:
                         if job_info.get('hasJob', False):  # Only add if job was found
-                            row = self._create_table_row(
-                                entry, 
-                                job_info, 
-                                found_on=f"PDF: {pdf_link.title or 'document'}"
-                            )
+                            row = self._create_table_row(entry, job_info)
                             all_rows.append(row)
             except Exception as e:
                 logger.warning(f"Could not process PDF {pdf_link.url}: {str(e)}")
@@ -361,16 +360,13 @@ class JobProcessor:
                     location=entry.location,
                     website=entry.website,
                     website_to_jobs=scrape_url,
-                    page_content=page_content
+                    page_content=page_content,
+                    source_url=job_link.url
                 )
                 
                 for job_info in jobs_info_list:
                     if job_info.get('hasJob', False):  # Only add if job was found
-                        row = self._create_table_row(
-                            entry,
-                            job_info,
-                            found_on=f"Page: {job_link.title or job_link.url}"
-                        )
+                        row = self._create_table_row(entry, job_info)
                         all_rows.append(row)
             except Exception as e:
                 logger.warning(f"Could not process job link {job_link.url}: {str(e)}")
