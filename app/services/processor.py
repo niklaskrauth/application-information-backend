@@ -51,14 +51,13 @@ class JobProcessor:
                     logger.warning(f"Could not parse date string: {date_str}")
                     return None
     
-    def _create_table_row(self, entry: WebsiteEntry, job_info: Dict[str, Any], found_on: Optional[str] = None) -> TableRow:
+    def _create_table_row(self, entry: WebsiteEntry, job_info: Dict[str, Any]) -> TableRow:
         """
         Create a TableRow object from job information.
         
         Args:
             entry: WebsiteEntry with company information
             job_info: Dictionary with job information from AI
-            found_on: Optional source information (overrides job_info['foundOn'])
             
         Returns:
             TableRow object
@@ -87,7 +86,7 @@ class JobProcessor:
             employmentType=job_info.get('employmentType'),
             applicationDate=application_date,
             occupyStart=occupy_start,
-            foundOn=found_on or job_info.get('foundOn'),
+            foundOn=job_info.get('foundOn'),
             comments=job_info.get('comments')
         )
     
