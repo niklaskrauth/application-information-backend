@@ -196,7 +196,7 @@ class AIAgent:
             for chunk_idx, chunk in enumerate(chunks):
                 logger.info(f"Processing chunk {chunk_idx + 1}/{len(chunks)} for {location}")
                 
-                prompt = f"""Analysieren Sie den folgenden Text und extrahieren Sie ALLE Verwaltungs- und Bürostellen.
+                prompt = f"""Analysieren Sie den folgenden Text und extrahieren Sie alle relevanten Verwaltungs- und Bürostellen.
 
 WICHTIG: "Stellenausschreiben", "Stellenangebote", "Karriere", "Jobs" sind Überschriften/Seitentitel - NICHT als Stellentitel extrahieren! Suchen Sie nach den tatsächlichen Stellentiteln UNTER diesen Überschriften.
 
@@ -238,8 +238,8 @@ Geben Sie ein JSON-Array zurück. Jedes Element repräsentiert EINE gefundene St
 ]
 
 
-EXTREM WICHTIG - SALARY FELD (HÖCHSTE PRIORITÄT!):
-Das salary Feld ist DAS WICHTIGSTE Feld! Suchen Sie SEHR GRÜNDLICH nach Gehaltsinformationen!
+=== WICHTIG: SALARY FELD (HÖCHSTE PRIORITÄT) ===
+Das salary Feld ist sehr wichtig! Suchen Sie gründlich nach Gehaltsinformationen im GESAMTEN Text!
 
 Suchen Sie nach diesen Begriffen IM GESAMTEN TEXT:
 - "Entgeltgruppe" + Zahl (z.B. "Entgeltgruppe 6" → "EG 6")
@@ -258,22 +258,22 @@ BEISPIELE:
 
 STRATEGIE: Lesen Sie den Text ZWEIMAL durch nur um nach salary zu suchen!
 
-KRITISCHE HINWEISE zu occupyStart:
+=== HINWEISE: occupyStart ===
 Suchen Sie nach Eintrittsdatum:
 - "ab sofort" oder "nächstmöglich" → {current_date}
 - "zum 01.01.2025" → "2025-01-01"
 - "ab 15.03.2025" → "2025-03-15"
 
-KRITISCHE HINWEISE zu foundOn:
-- foundOn MUSS die URL sein: {source_url}
-- NIEMALS Text wie "Main page" oder "PDF: filename"
-- Verwenden Sie IMMER: {source_url}
+=== HINWEISE: foundOn ===
+- foundOn muss die URL sein: {source_url}
+- Niemals Text wie "Main page" oder "PDF: filename"
+- Verwenden Sie immer: {source_url}
 
-WICHTIGE FILTERHINWEISE:
+=== FILTERHINWEISE ===
 - NICHT extrahieren: Ausbildung/Praktikum/Student/Manager/Leiter/Direktor
 - Im Zweifel: Verwaltungsstelle → extrahieren!
-- "Stellenausschreiben"/"Stellenangebote" sind KEINE Stellentitel, nur Überschriften
-- Wenn KEINE Stelle gefunden: [{{"hasJob": false, "comments": "Keine passenden Verwaltungsstellen gefunden"}}]
+- "Stellenausschreiben"/"Stellenangebote" sind keine Stellentitel, nur Überschriften
+- Wenn keine Stelle gefunden: [{{"hasJob": false, "comments": "Keine passenden Verwaltungsstellen gefunden"}}]
 
 Antworten Sie NUR mit dem JSON-Array, kein zusätzlicher Text."""
                 
