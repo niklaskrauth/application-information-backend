@@ -261,7 +261,7 @@ KRITISCHE HINWEISE zu salary (ABSOLUT KRITISCH - DAS IST SEHR WICHTIG!):
 
 KRITISCHE HINWEISE zu homeOfficeOption:
 - Für gefundene Stellen (hasJob=true): NIEMALS null verwenden!
-- true wenn: "Homeoffice", "Home-Office", "mobiles Arbeiten", "Remote", "von zuhause" erwähnt wird
+- true wenn: "Homeoffice", "Home-Office", "Mobiles Arbeiten", "mobiles Arbeiten", "mobiles arbeiten", "Remote", "remote", "von zuhause", "Telearbeit", "flexible Arbeitsgestaltung" erwähnt wird
 - false wenn: nichts davon erwähnt wird
 - Standard ist false wenn nicht erwähnt!
 
