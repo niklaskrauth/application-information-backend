@@ -225,7 +225,7 @@ WICHTIG: Seien Sie EXTREM GRÜNDLICH und erfassen Sie ALLE relevanten Informatio
     "employmentType": "Beschäftigungsart (z.B. 'Unbefristet', 'Befristet', 'Befristet bis TT.MM.JJJJ')" oder null,
     "applicationDate": "JJJJ-MM-TT" oder null (letzter Bewerbungstermin/Bewerbungsfrist),
     "occupyStart": "JJJJ-MM-TT" oder null (Stellenantritt/Eintrittsdatum/Besetzungstermin),
-    "foundOn": "URL der Quelle wo die Stelle gefunden wurde",
+    "foundOn": "{source_url}",
     "comments": "Zusätzliche relevante Informationen (z.B. Voraussetzungen, besondere Hinweise)" oder null
   }}
 ]
@@ -238,23 +238,40 @@ KRITISCHE HINWEISE zu occupyStart (SEHR WICHTIG - NICHT VERGESSEN!):
 - Wenn kein Datum erwähnt wird: null
 - IMMER nach diesem Feld suchen - es ist SEHR WICHTIG!
 
-KRITISCHE HINWEISE zu salary:
-- Suchen Sie nach: "EG", "E" (gefolgt von Zahlen/Buchstaben), "TVÖD", "TVöD", "Entgeltgruppe", "Besoldungsgruppe", "A" (gefolgt von Zahlen)
-- Beispiele: "EG 6", "EG 9a", "E 9b", "E9b", "TVÖD E 11", "A 9", "Besoldungsgruppe A 10"
-- NICHT nur Zahlen - wir brauchen die Entgeltgruppe!
-- Wenn nur "TVÖD" erwähnt: "TVÖD" angeben
-- IMMER gründlich nach Gehaltsinformationen suchen!
+KRITISCHE HINWEISE zu salary (ABSOLUT KRITISCH - DAS IST SEHR WICHTIG!):
+- Dies ist eines der WICHTIGSTEN Felder! Lesen Sie den Text MEHRMALS durch um Gehaltsinformationen zu finden!
+- Suchen Sie ÜBERALL im Text nach Gehaltsinformationen!
+- Suchen Sie nach diesen EXAKTEN Begriffen (mit oder ohne Leerzeichen):
+  * "Entgeltgruppe" oder "EG" gefolgt von Zahlen/Buchstaben
+  * "TVöD", "TVÖD", "TV-L", "TVL", "Tarifvertrag"
+  * "Besoldungsgruppe" oder "BesGr" oder nur "A" gefolgt von Zahlen (z.B. "A 9", "A10")
+  * "E" gefolgt von Zahlen/Buchstaben (z.B. "E 9b", "E9b", "E 11")
+  * Kombinationen wie "TVÖD E 9b", "EG 9a TVöD", "Entgeltgruppe 6"
+- BEISPIELE für KORREKTE Extraktionen:
+  * Text: "Entgeltgruppe 6" → salary: "EG 6"
+  * Text: "TVöD E 9b" → salary: "TVöD E 9b"
+  * Text: "nach Entgeltgruppe 9a" → salary: "EG 9a"
+  * Text: "Vergütung nach TVöD" → salary: "TVöD"
+  * Text: "bis Besoldungsgruppe A 10" → salary: "bis A 10"
+  * Text: "EG9a TVöD" → salary: "EG 9a TVöD"
+- Wenn mehrere Entgeltgruppen genannt werden (z.B. "bis EG 9a"), nehmen Sie die vollständige Information
+- Wenn nur "TVöD" oder "TV-L" ohne Gruppe erwähnt: geben Sie "TVöD" bzw. "TV-L" zurück
+- WICHTIG: Schauen Sie sich den GESAMTEN Text an, nicht nur den Anfang!
+- Das salary Feld ist EXTREM wichtig - nehmen Sie sich Zeit, es gründlich zu suchen!
 
 KRITISCHE HINWEISE zu homeOfficeOption:
 - Für gefundene Stellen (hasJob=true): NIEMALS null verwenden!
-- true wenn: "Homeoffice", "Home-Office", "mobiles Arbeiten", "Remote", "von zuhause" erwähnt wird
+- true wenn: "Homeoffice", "Home-Office", "Mobiles Arbeiten", "mobiles Arbeiten", "mobiles arbeiten", "Remote", "remote", "von zuhause", "Telearbeit", "flexible Arbeitsgestaltung" erwähnt wird
 - false wenn: nichts davon erwähnt wird
 - Standard ist false wenn nicht erwähnt!
 
-KRITISCHE HINWEISE zu foundOn:
-- Verwenden Sie IMMER die Quelle URL: {source_url}
-- NIEMALS nur "Main page" oder "PDF: filename" - IMMER die vollständige URL!
-- Die Quelle URL ist oben angegeben
+KRITISCHE HINWEISE zu foundOn (ABSOLUT KRITISCH!):
+- foundOn MUSS IMMER die VOLLSTÄNDIGE URL sein: {source_url}
+- NIEMALS beschreibenden Text verwenden wie "Main page", "Hauptseite", "PDF: filename"
+- foundOn ist für den Nutzer zum ANKLICKEN gedacht - es MUSS eine vollständige URL sein!
+- Verwenden Sie EXAKT diese URL für foundOn: {source_url}
+- KORREKTE Beispiele: "https://www.example.com/jobs", "https://www.example.com/file.pdf"
+- FALSCHE Beispiele: "Main page", "PDF: file.pdf", "Hauptseite", "Job detail page"
 
 STRENGE FILTERREGELN:
 - NUR Stellen extrahieren die ALLE Filterkriterien erfüllen
