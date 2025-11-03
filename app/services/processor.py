@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 class JobProcessor:
     """Processor for extracting job information from company websites"""
     
+    # Configuration constants
+    MAX_LINKED_PAGE_CONTENT_LENGTH = 3000  # Max characters from linked job pages
+    
     def __init__(self, excel_path: str, timeout: int = 30):
         self.excel_reader = ExcelReader(excel_path)
         self.web_scraper = WebScraper(timeout=timeout)
@@ -229,8 +232,8 @@ class JobProcessor:
             try:
                 logger.info(f"Following job link: {job_link.url}")
                 linked_page_text, _ = self.web_scraper.scrape_website(job_link.url)
-                # Limit linked page content to 3000 chars for efficiency
-                all_content.append(f"\nJob detail page '{job_link.title or job_link.url}':\n{linked_page_text[:3000]}")
+                # Limit linked page content using constant
+                all_content.append(f"\nJob detail page '{job_link.title or job_link.url}':\n{linked_page_text[:self.MAX_LINKED_PAGE_CONTENT_LENGTH]}")
             except Exception as e:
                 logger.warning(f"Could not scrape job link {job_link.url}: {str(e)}")
         

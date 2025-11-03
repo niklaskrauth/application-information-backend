@@ -64,6 +64,9 @@ EXCLUDED_QUALIFICATIONS = [
 class AIAgent:
     """LangChain AI Agent using Ollama for analyzing job information from websites"""
     
+    # Configuration constants
+    MAX_CHUNK_LENGTH = 12000  # Characters per chunk for processing
+    
     def __init__(self):
         self.provider = "ollama"
         self.enabled = False
@@ -92,7 +95,7 @@ class AIAgent:
         self.last_api_call_time = time.time()
         self.min_delay_between_calls = 0  # No rate limiting for Ollama
         # Set reasonable content length for chunking
-        self.max_chunk_length = 12000  # Characters per chunk for processing
+        self.max_chunk_length = self.MAX_CHUNK_LENGTH
     
     def _rate_limit(self):
         """Implement rate limiting by adding delays between API calls"""
@@ -171,6 +174,10 @@ class AIAgent:
             chunks = self._chunk_content(page_content)
             all_jobs = []
             
+            # Get current date for "ab sofort" conversions
+            from datetime import datetime
+            current_date = datetime.now().strftime("%Y-%m-%d")
+            
             # Build exclusion and inclusion lists for prompt
             excluded_terms = '", "'.join(EXCLUDED_JOB_TYPES)
             included_terms = '", "'.join(INCLUDED_JOB_TYPES)
@@ -182,6 +189,7 @@ class AIAgent:
                 prompt = f"""Analysieren Sie den folgenden Text und extrahieren Sie NUR Verwaltungs- und Bürostellen.
 
 Standort: {location}
+Heutiges Datum: {current_date}
 
 WICHTIGE FILTERREGELN - Extrahieren Sie NUR Stellen wenn ALLE Bedingungen erfüllt sind:
 1. Die Stelle ist eine Verwaltungs- oder Büroposition (z.B. "{included_terms}")
@@ -210,7 +218,7 @@ Geben Sie ein JSON-Array zurück. Jedes Element repräsentiert EINE gefundene St
 
 WICHTIG zu occupyStart:
 - Extrahieren Sie das Eintrittsdatum/Stellenantritt (z.B. "ab sofort", "zum 01.01.2025", "nächstmöglich")
-- "ab sofort" oder "nächstmöglich" = heutiges Datum
+- "ab sofort" oder "nächstmöglich" = {current_date}
 - Konkrete Datumsangaben im Format JJJJ-MM-TT
 - Wenn kein Eintrittsdatum erwähnt wird: null
 
@@ -247,6 +255,20 @@ Antworten Sie NUR mit dem JSON-Array, kein zusätzlicher Text."""
             
             # Filter to only jobs where hasJob is true
             all_jobs = [job for job in all_jobs if job.get('hasJob', False)]
+            
+            # Deduplicate jobs based on name (case-insensitive) to avoid duplicates across chunks
+            seen_names = set()
+            deduplicated_jobs = []
+            for job in all_jobs:
+                job_name = (job.get('name') or '').lower().strip()
+                if job_name and job_name not in seen_names:
+                    seen_names.add(job_name)
+                    deduplicated_jobs.append(job)
+                elif not job_name:
+                    # Include jobs without names (shouldn't happen but handle gracefully)
+                    deduplicated_jobs.append(job)
+            
+            all_jobs = deduplicated_jobs
             
             # If no jobs found in any chunk, return no jobs found message
             if not all_jobs:
