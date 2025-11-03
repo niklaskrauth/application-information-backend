@@ -292,7 +292,7 @@ Antworten Sie NUR mit dem JSON-Array, kein zusätzlicher Text."""
                         
                         # Ensure foundOn is set to source_url if not set or is a text description
                         found_on_value = job.get('foundOn', '')
-                        if not found_on_value or not found_on_value.startswith('http'):
+                        if not found_on_value or not isinstance(found_on_value, str) or not found_on_value.startswith('http'):
                             job['foundOn'] = source_url
                 
                 # Filter out "no jobs found" entries from chunks after the first
