@@ -16,6 +16,9 @@ class WebScraper:
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
+        # Session for connection pooling and better performance
+        self.session = requests.Session()
+        self.session.headers.update(self.headers)
     
     def scrape_website(self, url: str) -> Tuple[str, List[ExtractedLink]]:
         """
@@ -28,7 +31,7 @@ class WebScraper:
             Tuple of (page_text_content, list of ExtractedLink objects)
         """
         try:
-            response = requests.get(url, headers=self.headers, timeout=self.timeout)
+            response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -47,15 +50,15 @@ class WebScraper:
             raise
     
     def _extract_text(self, soup: BeautifulSoup) -> str:
-        """Extract readable text from HTML"""
-        # Remove script and style elements
-        for script in soup(["script", "style"]):
-            script.decompose()
+        """Extract readable text from HTML with improved efficiency"""
+        # Remove script, style, nav, footer, and header elements for cleaner content
+        for element in soup(["script", "style", "nav", "footer", "header"]):
+            element.decompose()
         
         # Get text
         text = soup.get_text()
         
-        # Clean up text
+        # Clean up text more efficiently
         lines = (line.strip() for line in text.splitlines())
         chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
         text = '\n'.join(chunk for chunk in chunks if chunk)

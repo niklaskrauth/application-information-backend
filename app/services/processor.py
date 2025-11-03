@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 class JobProcessor:
     """Processor for extracting job information from company websites"""
     
+    # Configuration constants
+    MAX_LINKED_PAGE_CONTENT_LENGTH = 3000  # Max characters from linked job pages
+    
     def __init__(self, excel_path: str, timeout: int = 30):
         self.excel_reader = ExcelReader(excel_path)
         self.web_scraper = WebScraper(timeout=timeout)
@@ -66,6 +69,12 @@ class JobProcessor:
         if date_str:
             application_date = self._parse_date(date_str)
         
+        # Parse occupyStart if present
+        occupy_start = None
+        occupy_date_str = job_info.get('occupyStart')
+        if occupy_date_str:
+            occupy_start = self._parse_date(occupy_date_str)
+        
         return TableRow(
             location=entry.location,
             website=entry.website,
@@ -77,6 +86,7 @@ class JobProcessor:
             period=job_info.get('period'),
             employmentType=job_info.get('employmentType'),
             applicationDate=application_date,
+            occupyStart=occupy_start,
             foundOn=found_on or job_info.get('foundOn'),
             comments=job_info.get('comments')
         )
@@ -196,15 +206,15 @@ class JobProcessor:
         # Collect all content from main page and linked resources
         all_content = [f"Main page content:\n{page_text}"]
         
-        # Process PDFs found on the jobs page (limit to first 3)
+        # Process PDFs found on the jobs page (limit to first 2 for efficiency)
         pdf_links = [link for link in links if link.link_type == 'pdf']
-        for pdf_link in pdf_links[:3]:
+        for pdf_link in pdf_links[:2]:
             logger.info(f"Extracting PDF content from: {pdf_link.url}")
             pdf_text = self.content_extractor.extract_pdf_content(pdf_link.url)
             if pdf_text:
                 all_content.append(f"\nPDF content from '{pdf_link.title or pdf_link.url}':\n{pdf_text}")
         
-        # Follow job-related links (limit to first 3 relevant links)
+        # Follow job-related links (limit to first 2 relevant links for efficiency)
         # Look for links that might contain job details
         job_related_keywords = ['job', 'career', 'position', 'vacancy', 'opening', 'stelle', 'karriere']
         job_links = []
@@ -217,12 +227,13 @@ class JobProcessor:
                 if any(keyword in link_text or keyword in link_url for keyword in job_related_keywords):
                     job_links.append(link)
         
-        # Scrape content from relevant job detail pages (limit to 3)
-        for job_link in job_links[:3]:
+        # Scrape content from relevant job detail pages (limit to 2 for efficiency)
+        for job_link in job_links[:2]:
             try:
                 logger.info(f"Following job link: {job_link.url}")
                 linked_page_text, _ = self.web_scraper.scrape_website(job_link.url)
-                all_content.append(f"\nJob detail page '{job_link.title or job_link.url}':\n{linked_page_text[:3000]}")
+                # Limit linked page content using constant
+                all_content.append(f"\nJob detail page '{job_link.title or job_link.url}':\n{linked_page_text[:self.MAX_LINKED_PAGE_CONTENT_LENGTH]}")
             except Exception as e:
                 logger.warning(f"Could not scrape job link {job_link.url}: {str(e)}")
         
@@ -234,7 +245,7 @@ class JobProcessor:
             location=entry.location,
             website=entry.website,
             website_to_jobs=scrape_url,
-            page_content=combined_content  # No limit - let Ollama handle it
+            page_content=combined_content
         )
         
         # Create TableRow for each job found
@@ -288,7 +299,7 @@ class JobProcessor:
         # if no jobs were found. PDFs and detail pages only add jobs when hasJob=true
         # to avoid duplicate "no jobs found" entries.
         logger.info(f"Processing main page for {entry.location}")
-        main_page_content = f"Main page content:\n{page_text}"  # No content limit
+        main_page_content = f"Main page content:\n{page_text}"
         
         jobs_info_list = self.ai_agent.extract_multiple_jobs(
             location=entry.location,
@@ -302,14 +313,14 @@ class JobProcessor:
             row = self._create_table_row(entry, job_info, found_on='Main page')
             all_rows.append(row)
         
-        # Process PDFs one by one (limit to first 2 for efficiency)
+        # Process PDFs one by one (limit to first 1 for efficiency)
         pdf_links = [link for link in links if link.link_type == 'pdf']
-        for pdf_link in pdf_links[:2]:
+        for pdf_link in pdf_links[:1]:
             logger.info(f"Processing PDF: {pdf_link.url}")
             try:
                 pdf_text = self.content_extractor.extract_pdf_content(pdf_link.url)
                 if pdf_text:
-                    pdf_content = f"PDF content from '{pdf_link.title or pdf_link.url}':\n{pdf_text}"  # No content limit
+                    pdf_content = f"PDF content from '{pdf_link.title or pdf_link.url}':\n{pdf_text}"
                     
                     jobs_info_list = self.ai_agent.extract_multiple_jobs(
                         location=entry.location,
@@ -329,7 +340,7 @@ class JobProcessor:
             except Exception as e:
                 logger.warning(f"Could not process PDF {pdf_link.url}: {str(e)}")
         
-        # Process job detail pages one by one (limit to first 2 for efficiency)
+        # Process job detail pages one by one (limit to first 1 for efficiency)
         job_related_keywords = ['job', 'career', 'position', 'vacancy', 'opening', 'stelle', 'karriere']
         job_links = []
         
@@ -340,11 +351,11 @@ class JobProcessor:
                 if any(keyword in link_text or keyword in link_url for keyword in job_related_keywords):
                     job_links.append(link)
         
-        for job_link in job_links[:2]:
+        for job_link in job_links[:1]:
             logger.info(f"Processing job detail page: {job_link.url}")
             try:
                 linked_page_text, _ = self.web_scraper.scrape_website(job_link.url)
-                page_content = f"Job detail page '{job_link.title or job_link.url}':\n{linked_page_text}"  # No content limit
+                page_content = f"Job detail page '{job_link.title or job_link.url}':\n{linked_page_text}"
                 
                 jobs_info_list = self.ai_agent.extract_multiple_jobs(
                     location=entry.location,

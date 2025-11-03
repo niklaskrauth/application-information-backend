@@ -64,6 +64,9 @@ EXCLUDED_QUALIFICATIONS = [
 class AIAgent:
     """LangChain AI Agent using Ollama for analyzing job information from websites"""
     
+    # Configuration constants
+    MAX_CHUNK_LENGTH = 12000  # Characters per chunk for processing
+    
     def __init__(self):
         self.provider = "ollama"
         self.enabled = False
@@ -78,8 +81,9 @@ class AIAgent:
             self.llm = ChatOllama(
                 model=settings.OLLAMA_MODEL,
                 base_url=settings.OLLAMA_BASE_URL,
-                temperature=0.3,
-                timeout=60  # Increase timeout to 60 seconds
+                temperature=0.1,  # Lower temperature for more consistent results
+                num_ctx=4096,  # Reduced context window for efficiency
+                timeout=90  # Increased timeout for remote server
             )
             logger.info(f"AI Agent initialized with Ollama provider (model: {settings.OLLAMA_MODEL}, base_url: {settings.OLLAMA_BASE_URL})")
         except Exception as e:
@@ -89,14 +93,61 @@ class AIAgent:
         
         # Initialize to current time to avoid artificial delay on first call
         self.last_api_call_time = time.time()
-        self.min_delay_between_calls = 0  # No rate limiting for local Ollama
-        # No maximum content length limit - let Ollama handle it
-        self.max_content_length = None
+        self.min_delay_between_calls = 0  # No rate limiting for Ollama
+        # Set reasonable content length for chunking
+        self.max_chunk_length = self.MAX_CHUNK_LENGTH
     
     def _rate_limit(self):
         """Implement rate limiting by adding delays between API calls"""
-        # No rate limiting for local Ollama - removed delay
+        # No rate limiting for Ollama - removed delay
         pass
+    
+    def _chunk_content(self, content: str, max_length: int = None) -> List[str]:
+        """
+        Split content into chunks for more efficient processing.
+        
+        The chunking strategy attempts to split at natural boundaries:
+        1. First tries to split at paragraph breaks (\\n\\n)
+        2. Falls back to sentence breaks (. ) if no paragraph break found
+        3. Only splits at arbitrary positions as a last resort
+        
+        Args:
+            content: The content to chunk
+            max_length: Maximum length of each chunk (defaults to self.max_chunk_length)
+            
+        Returns:
+            List of content chunks
+        """
+        if max_length is None:
+            max_length = self.max_chunk_length
+        
+        # If content is small enough, return as single chunk
+        if len(content) <= max_length:
+            return [content]
+        
+        chunks = []
+        current_pos = 0
+        
+        while current_pos < len(content):
+            # Get next chunk
+            chunk_end = current_pos + max_length
+            
+            # If not at end, try to break at a paragraph or sentence boundary
+            if chunk_end < len(content):
+                # Look for paragraph break
+                para_break = content.rfind('\n\n', current_pos, chunk_end)
+                if para_break > current_pos:
+                    chunk_end = para_break
+                else:
+                    # Look for sentence break
+                    sentence_break = content.rfind('. ', current_pos, chunk_end)
+                    if sentence_break > current_pos:
+                        chunk_end = sentence_break + 1
+            
+            chunks.append(content[current_pos:chunk_end])
+            current_pos = chunk_end
+        
+        return chunks
     
     def extract_multiple_jobs(self, location: str, website: str, website_to_jobs: str, page_content: str) -> List[Dict[str, Any]]:
         """
@@ -119,90 +170,122 @@ class AIAgent:
             }]
         
         try:
-            # No rate limiting needed for local Ollama
+            # Chunk content for more efficient processing
+            chunks = self._chunk_content(page_content)
+            all_jobs = []
+            
+            # Get current date for "ab sofort" conversions
+            from datetime import datetime
+            current_date = datetime.now().strftime("%Y-%m-%d")
             
             # Build exclusion and inclusion lists for prompt
             excluded_terms = '", "'.join(EXCLUDED_JOB_TYPES)
             included_terms = '", "'.join(INCLUDED_JOB_TYPES)
             excluded_qualifications = '", "'.join(EXCLUDED_QUALIFICATIONS)
             
-            prompt = f"""
-Sie analysieren eine Unternehmenswebseite, um Informationen über ALLE verfügbaren Verwaltungsstellen zu extrahieren.
+            for chunk_idx, chunk in enumerate(chunks):
+                logger.info(f"Processing chunk {chunk_idx + 1}/{len(chunks)} for {location}")
+                
+                prompt = f"""Analysieren Sie den folgenden Text und extrahieren Sie NUR Verwaltungs- und Bürostellen.
 
 Standort: {location}
-Unternehmenswebseite: {website}
-Stellenseite: {website_to_jobs}
+Heutiges Datum: {current_date}
 
-Inhalt der Stellenseite:
-{page_content}
+WICHTIGE FILTERREGELN - Extrahieren Sie NUR Stellen wenn ALLE Bedingungen erfüllt sind:
+1. Die Stelle ist eine Verwaltungs- oder Büroposition (z.B. "{included_terms}")
+2. Die Stelle enthält NICHT diese Begriffe: "{excluded_terms}"
+3. Die Stelle erfordert KEINE höhere Ausbildung: "{excluded_qualifications}"
+4. Die Stelle ist für Personen mit Berufsausbildung geeignet
 
-Bitte analysieren Sie diesen Inhalt und extrahieren Sie Informationen für ALLE gefundenen Stellenangebote. Geben Sie ein JSON-Array zurück, wobei jedes Element eine Stelle repräsentiert:
+Text:
+{chunk}
+
+Geben Sie ein JSON-Array zurück. Jedes Element repräsentiert EINE gefundene Stelle:
 [
-    {{
-        "hasJob": true,
-        "name": "Stellentitel",
-        "salary": "Gehaltsinformationen falls erwähnt" oder null,
-        "homeOfficeOption": true/false/null (ob Home Office oder Remote-Arbeit erwähnt wird),
-        "period": "Arbeitszeit falls erwähnt (z.B., 'Vollzeit', 'Teilzeit', '40 Stunden/Woche')" oder null,
-        "employmentType": "Beschäftigungsart falls erwähnt (z.B., 'Unbefristet', 'Befristet', 'Festanstellung')" oder null,
-        "applicationDate": "JJJJ-MM-TT Format (z.B., '2025-12-31') falls eine Bewerbungsfrist oder ein Datum erwähnt wird" oder null,
-        "foundOn": "Quelle der Stelle (z.B., 'Hauptseite', 'PDF: [Titel]', 'Unterseite: [URL]')" oder null,
-        "comments": "zusätzliche relevante Informationen zu dieser spezifischen Stelle (KEINE Datumsangaben hier)" oder null
-    }},
-    ... (ein Eintrag für jede gefundene Stelle)
+  {{
+    "hasJob": true,
+    "name": "Exakter Stellentitel",
+    "salary": "Gehaltsinformation (nur wenn explizit erwähnt)" oder null,
+    "homeOfficeOption": true/false/null (nur true wenn EXPLIZIT erwähnt),
+    "period": "Arbeitszeit (z.B. 'Vollzeit', 'Teilzeit')" oder null,
+    "employmentType": "Beschäftigungsart (z.B. 'Unbefristet', 'Befristet')" oder null,
+    "applicationDate": "JJJJ-MM-TT" oder null (Bewerbungsfrist),
+    "occupyStart": "JJJJ-MM-TT" oder null (Stellenantritt/Eintrittsdatum),
+    "foundOn": "Quelle (z.B. 'Hauptseite', 'PDF: dateiname.pdf')" oder null,
+    "comments": "Zusätzliche relevante Informationen" oder null
+  }}
 ]
 
-WICHTIGE FILTERKRITERIEN - Eine Stelle wird NUR extrahiert, wenn:
-1. Sie ist eine Verwaltungs- oder Bürostelle (z.B., "{included_terms}")
-2. Sie enthält NICHT die Begriffe: "{excluded_terms}"
-3. Sie erfordert KEINE höhere Ausbildung wie: "{excluded_qualifications}"
-4. Sie ist für Personen mit Berufsausbildung oder vergleichbarer Qualifikation geeignet
+WICHTIG zu occupyStart:
+- Extrahieren Sie das Eintrittsdatum/Stellenantritt (z.B. "ab sofort", "zum 01.01.2025", "nächstmöglich")
+- "ab sofort" oder "nächstmöglich" = {current_date}
+- Konkrete Datumsangaben im Format JJJJ-MM-TT
+- Wenn kein Eintrittsdatum erwähnt wird: null
 
-WICHTIG zum Datum (applicationDate):
-- Wenn eine Bewerbungsfrist erwähnt wird (z.B., "Bewerbung bis 31.12.2025"), extrahieren Sie das Datum im Format JJJJ-MM-TT
-- Wenn "bis Ende des Monats" oder ähnlich steht, berechnen Sie das konkrete Datum
-- Fügen Sie Datumsangaben NIEMALS in das "comments" Feld ein
-- Nur wenn kein Datum vorhanden ist, setzen Sie applicationDate auf null
+STRENGE REGELN:
+- NUR Stellen extrahieren die ALLE Filterkriterien erfüllen
+- KEINE Ausbildungs-, Praktikums- oder Studenten-Stellen
+- KEINE Stellen die Bachelor/Master/Hochschulabschluss erfordern
+- Bei Unsicherheit: NICHT extrahieren
+- Wenn KEINE passende Stelle: [{{"hasJob": false, "comments": "Keine passenden Verwaltungsstellen gefunden"}}]
 
-WICHTIG zur Quelle (foundOn):
-- Identifizieren Sie, wo die Stelle gefunden wurde (z.B., auf der Hauptseite, in einem PDF-Dokument, auf einer Unterseite)
-- Geben Sie eine beschreibende Quelle an (z.B., "Hauptseite", "PDF: Stellenanzeige.pdf", "Unterseite: https://...")
-- Wenn die Quelle unklar ist, setzen Sie foundOn auf null
-
-Weitere wichtige Regeln:
-- Extrahieren Sie ALLE passenden Stellen, die auf der Seite gefunden werden
-- Wenn KEINE passenden Stellen gefunden werden, geben Sie zurück: [{{"hasJob": false, "comments": "Keine passenden Verwaltungsstellen gefunden"}}]
-- Jede Stelle sollte ein separates Objekt im Array sein
-- Seien Sie präzise in Ihren Extraktionen
-- Geben Sie NUR ein gültiges JSON-Array zurück, keinen zusätzlichen Text
-- Alle Textfelder sollten auf Deutsch sein
-"""
+Antworten Sie NUR mit dem JSON-Array, kein zusätzlicher Text."""
+                
+                response = self.llm.invoke(prompt)
+                content = response.content.strip()
+                
+                # Try to extract JSON from the response
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0].strip()
+                elif "```" in content:
+                    content = content.split("```")[1].split("```")[0].strip()
+                
+                result = json.loads(content)
+                
+                # Ensure result is a list
+                if isinstance(result, dict):
+                    result = [result]
+                
+                # Filter out "no jobs found" entries from chunks after the first
+                # Only the first chunk should report "no jobs found" to avoid duplicates
+                if chunk_idx > 0:
+                    result = [job for job in result if job.get('hasJob', False)]
+                
+                all_jobs.extend(result)
             
-            response = self.llm.invoke(prompt)
-            content = response.content.strip()
+            # Filter to only jobs where hasJob is true
+            all_jobs = [job for job in all_jobs if job.get('hasJob', False)]
             
-            # Try to extract JSON from the response
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0].strip()
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0].strip()
+            # Deduplicate jobs based on name (case-insensitive) to avoid duplicates across chunks
+            seen_names = set()
+            deduplicated_jobs = []
+            for job in all_jobs:
+                job_name = (job.get('name') or '').lower().strip()
+                if job_name and job_name not in seen_names:
+                    seen_names.add(job_name)
+                    deduplicated_jobs.append(job)
+                elif not job_name:
+                    # Include jobs without names (shouldn't happen but handle gracefully)
+                    deduplicated_jobs.append(job)
             
-            result = json.loads(content)
+            all_jobs = deduplicated_jobs
             
-            # Ensure result is a list
-            if isinstance(result, dict):
-                # If AI returned a single job as dict, wrap it in a list
-                result = [result]
+            # If no jobs found in any chunk, return no jobs found message
+            if not all_jobs:
+                return [{
+                    "hasJob": False,
+                    "comments": "Keine passenden Verwaltungsstellen gefunden"
+                }]
             
-            logger.info(f"Successfully extracted {len(result)} job(s) for {location}")
-            return result
+            logger.info(f"Successfully extracted {len(all_jobs)} job(s) for {location}")
+            return all_jobs
             
         except ConnectionErrors as e:
             logger.error(f"Connection error when connecting to Ollama at {settings.OLLAMA_BASE_URL}: {str(e)}")
-            logger.error("Please ensure Ollama is running with: ollama serve")
+            logger.error("Please ensure Ollama is running")
             return [{
                 "hasJob": False,
-                "comments": f"Cannot connect to Ollama at {settings.OLLAMA_BASE_URL}. Please start Ollama: ollama serve"
+                "comments": f"Cannot connect to Ollama at {settings.OLLAMA_BASE_URL}"
             }]
         except json.JSONDecodeError as e:
             logger.error(f"Error parsing AI response as JSON: {str(e)}")
