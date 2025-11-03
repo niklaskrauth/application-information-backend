@@ -2,13 +2,13 @@
 
 A Python backend using LangChain with Ollama for extracting job information from company websites. The system reads company locations from an Excel sheet, scrapes their job pages, and uses AI to extract structured job information for frontend consumption.
 
-**Uses Ollama to run AI models locally - no API keys needed, no rate limits!**
+**Uses Ollama AI models (remote or local) - no API keys needed, no rate limits!**
 
 ## Features
 
 - **Excel Integration**: Read company data from Excel sheets
 - **Web Scraping**: Automatically scrape company job pages
-- **AI Job Extraction**: Use LangChain with Ollama (LLaMA 3.1/3.2 or other models) - Run AI locally, no API keys needed, no rate limits
+- **AI Job Extraction**: Use LangChain with Ollama (LLaMA 3.1/3.2 or other models) - Remote or local AI, no API keys needed, no rate limits
 - **REST API**: FastAPI-based REST API with single GET endpoint
 - **Structured JSON Output**: Returns job data matching frontend TypeScript interfaces
 
@@ -21,7 +21,7 @@ Excel File (src/data/excel.xls) → Excel Reader → Website Scraper → AI Agen
 ## Requirements
 
 - Python 3.8+
-- Ollama installed and running (for local AI-powered job extraction, no API key needed)
+- Access to Ollama AI server (remote server configured by default, or install locally - no API key needed)
 
 ## Installation
 
@@ -55,7 +55,16 @@ cp .env.example .env
 
 **Configure Ollama settings:**
 
-**Step 1: Install Ollama**
+The application is configured to use a remote Ollama server by default. The default configuration in `.env` points to:
+
+```
+OLLAMA_BASE_URL=http://45.93.251.180:11434
+OLLAMA_MODEL=llama3.1:8b
+```
+
+If you want to use a local Ollama installation instead:
+
+**Step 1: Install Ollama locally**
 
 Visit https://ollama.ai and download Ollama for your operating system:
 - **macOS**: Download the .dmg file and install
@@ -75,9 +84,9 @@ ollama pull llama3.1:8b
 ollama pull llama3.1:70b
 ```
 
-**Step 3: Configure the application**
+**Step 3: Configure the application for local use**
 
-Edit `.env` and configure Ollama:
+Edit `.env` and configure Ollama to use localhost:
 ```
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.1:8b
@@ -191,6 +200,7 @@ This endpoint:
       "period": "Full-time",
       "employmentType": "Permanent",
       "applicationDate": null,
+      "occupyStart": "2025-01-15",
       "foundOn": "Main page",
       "comments": "Remote work available, flexible hours"
     },
@@ -205,6 +215,7 @@ This endpoint:
       "period": "Full-time",
       "employmentType": "Permanent",
       "applicationDate": null,
+      "occupyStart": null,
       "foundOn": "PDF: career_opportunities.pdf",
       "comments": "Great for entry-level candidates"
     },
@@ -219,6 +230,7 @@ This endpoint:
       "period": null,
       "employmentType": null,
       "applicationDate": null,
+      "occupyStart": null,
       "foundOn": null,
       "comments": "No open positions at this time"
     }
@@ -243,6 +255,7 @@ interface TableRow {
     period?: string;
     employmentType?: string;
     applicationDate?: Date;
+    occupyStart?: Date;
     foundOn?: string;
     comments?: string;
 }
@@ -328,8 +341,8 @@ application-information-backend/
 All configuration is managed through environment variables (`.env` file):
 
 ```bash
-# Ollama Configuration
-OLLAMA_BASE_URL=http://localhost:11434
+# Ollama Configuration (remote server by default)
+OLLAMA_BASE_URL=http://45.93.251.180:11434
 OLLAMA_MODEL=llama3.1:8b
 
 # Application Configuration
@@ -374,14 +387,14 @@ flake8 app/
 ## Limitations and Considerations
 
 - **Rate Limiting**: 
-  - **Ollama**: No rate limits, processing speed depends on your hardware
+  - **Ollama**: No rate limits, processing speed depends on server/hardware
   - **Web Scraping**: Be respectful of rate limits when scraping websites
 - **Processing Time**: 
   - Each company entry requires scraping and AI analysis
-  - **Ollama**: Varies by hardware (8B model: 10-30 seconds, 70B model: 30-120 seconds per company)
+  - **Ollama**: Varies by server/hardware (8B model: 10-30 seconds, 70B model: 30-120 seconds per company)
 - **API Costs**: 
-  - **Ollama**: Completely free, runs locally, no API costs
-- **Hardware Requirements (Ollama)**:
+  - **Ollama**: Completely free, remote or local, no API costs
+- **Hardware Requirements (for local Ollama)**:
   - 8B models: 8GB RAM minimum, 16GB recommended
   - 70B models: 40GB RAM minimum, GPU recommended for better performance
 - **Content Accuracy**: AI extraction depends on the structure and clarity of the job page content
@@ -391,11 +404,11 @@ flake8 app/
 ### Common Issues
 
 1. **"Failed to initialize Ollama"**
-   - Make sure Ollama is installed and running: `ollama serve`
+   - If using remote server: Check that OLLAMA_BASE_URL in `.env` is correct (default: `http://45.93.251.180:11434`)
+   - If using local Ollama: Make sure Ollama is installed and running: `ollama serve`
    - Verify the model is downloaded: `ollama list`
    - If not downloaded, pull it: `ollama pull llama3.1:8b`
    - Check that OLLAMA_BASE_URL in `.env` matches where Ollama is running
-   - Default is `http://localhost:11434`
 
 2. **"Ollama provider requires langchain-ollama"**
    - Install the Ollama dependency: `pip install langchain-ollama`
@@ -413,8 +426,8 @@ flake8 app/
 5. **Slow processing**
    - **For Ollama**: 
      - Use a smaller model (e.g., `llama3.1:8b` instead of `llama3.1:70b`)
-     - Ensure adequate RAM/VRAM available
-     - Consider using GPU acceleration if available
+     - If using local Ollama: Ensure adequate RAM/VRAM available and consider using GPU acceleration
+     - If using remote server: Processing speed depends on server capacity
    - Consider reducing the number of companies in the Excel file for testing
 
 ## License
