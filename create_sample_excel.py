@@ -2,9 +2,13 @@
 """
 Script to create a sample Excel file for testing the job extraction application.
 """
+import os
 from openpyxl import Workbook
 
 def create_sample_excel():
+    # Ensure data directory exists
+    os.makedirs('data', exist_ok=True)
+    
     wb = Workbook()
     ws = wb.active
     ws.title = 'Companies'
@@ -31,8 +35,8 @@ def create_sample_excel():
     ws['C4'] = 'https://www.tech-startup.com'
     ws['D4'] = 'https://www.tech-startup.com/careers'
 
-    wb.save('src/data/excel.xls')
-    print('Sample Excel file created successfully at src/data/excel.xls')
+    wb.save('data/Landratsamt.xlsx')
+    print('Sample Excel file created successfully at data/Landratsamt.xlsx')
 
 if __name__ == '__main__':
     create_sample_excel()

@@ -65,9 +65,16 @@ python create_sample_excel.py
 python -m uvicorn app.main:app --reload
 ```
 
-Or use the convenience script:
+Or use the convenience scripts:
+
+**On Linux/Mac:**
 ```bash
 ./run.sh
+```
+
+**On Windows:**
+```bash
+run.bat
 ```
 
 ## Step 5: Test the API
