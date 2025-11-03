@@ -239,8 +239,8 @@ KRITISCHE HINWEISE zu occupyStart (SEHR WICHTIG - NICHT VERGESSEN!):
 - IMMER nach diesem Feld suchen - es ist SEHR WICHTIG!
 
 KRITISCHE HINWEISE zu salary:
-- Suchen Sie nach: "EG", "E ", "TVÖD", "TVöD", "Entgeltgruppe", "Besoldungsgruppe", "A "
-- Beispiele: "EG 6", "EG 9a", "E 9b", "TVÖD E 11", "A 9", "Besoldungsgruppe A 10"
+- Suchen Sie nach: "EG", "E" (gefolgt von Zahlen/Buchstaben), "TVÖD", "TVöD", "Entgeltgruppe", "Besoldungsgruppe", "A" (gefolgt von Zahlen)
+- Beispiele: "EG 6", "EG 9a", "E 9b", "E9b", "TVÖD E 11", "A 9", "Besoldungsgruppe A 10"
 - NICHT nur Zahlen - wir brauchen die Entgeltgruppe!
 - Wenn nur "TVÖD" erwähnt: "TVÖD" angeben
 - IMMER gründlich nach Gehaltsinformationen suchen!
@@ -291,7 +291,8 @@ Antworten Sie NUR mit dem JSON-Array, kein zusätzlicher Text."""
                             job['homeOfficeOption'] = False
                         
                         # Ensure foundOn is set to source_url if not set or is a text description
-                        if not job.get('foundOn') or not job['foundOn'].startswith('http'):
+                        found_on_value = job.get('foundOn', '')
+                        if not found_on_value or not found_on_value.startswith('http'):
                             job['foundOn'] = source_url
                 
                 # Filter out "no jobs found" entries from chunks after the first
