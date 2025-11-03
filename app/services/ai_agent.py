@@ -103,6 +103,11 @@ class AIAgent:
         """
         Split content into chunks for more efficient processing.
         
+        The chunking strategy attempts to split at natural boundaries:
+        1. First tries to split at paragraph breaks (\\n\\n)
+        2. Falls back to sentence breaks (. ) if no paragraph break found
+        3. Only splits at arbitrary positions as a last resort
+        
         Args:
             content: The content to chunk
             max_length: Maximum length of each chunk (defaults to self.max_chunk_length)
@@ -233,27 +238,25 @@ Antworten Sie NUR mit dem JSON-Array, kein zusätzlicher Text."""
                 if isinstance(result, dict):
                     result = [result]
                 
-                # Filter out "no jobs found" entries except for the first chunk
+                # Filter out "no jobs found" entries from chunks after the first
+                # Only the first chunk should report "no jobs found" to avoid duplicates
                 if chunk_idx > 0:
                     result = [job for job in result if job.get('hasJob', False)]
                 
                 all_jobs.extend(result)
             
-            # If no jobs found in any chunk, return no jobs found
-            if not all_jobs or not any(job.get('hasJob', False) for job in all_jobs):
+            # Filter to only jobs where hasJob is true
+            all_jobs = [job for job in all_jobs if job.get('hasJob', False)]
+            
+            # If no jobs found in any chunk, return no jobs found message
+            if not all_jobs:
                 return [{
                     "hasJob": False,
                     "comments": "Keine passenden Verwaltungsstellen gefunden"
                 }]
             
-            # Filter to only jobs where hasJob is true
-            all_jobs = [job for job in all_jobs if job.get('hasJob', False)]
-            
             logger.info(f"Successfully extracted {len(all_jobs)} job(s) for {location}")
-            return all_jobs if all_jobs else [{
-                "hasJob": False,
-                "comments": "Keine passenden Verwaltungsstellen gefunden"
-            }]
+            return all_jobs
             
         except ConnectionErrors as e:
             logger.error(f"Connection error when connecting to Ollama at {settings.OLLAMA_BASE_URL}: {str(e)}")
