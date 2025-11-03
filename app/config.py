@@ -11,8 +11,8 @@ class Settings:
     # Using Ollama (local AI)
     AI_PROVIDER: str = "ollama"
     
-    # Ollama Configuration (local AI)
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    # Ollama Configuration (remote AI server)
+    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://45.93.251.180:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
     
     # Application Configuration
