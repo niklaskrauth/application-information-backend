@@ -103,7 +103,7 @@ Comprehensive documentation has been created:
 4. **validate.py** - Setup validation script
 5. **example_usage.py** - API usage examples
 6. **create_sample_excel.py** - Sample data generator
-7. **run.sh** - Convenience startup script
+7. **run.sh** (Linux/Mac) and **run.bat** (Windows) - Convenience startup scripts
 8. **test_basic.py** - Basic structural tests
 
 ## Security
