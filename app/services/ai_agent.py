@@ -196,24 +196,31 @@ class AIAgent:
             for chunk_idx, chunk in enumerate(chunks):
                 logger.info(f"Processing chunk {chunk_idx + 1}/{len(chunks)} for {location}")
                 
-                prompt = f"""Analysieren Sie den folgenden Text SEHR GRÜNDLICH und extrahieren Sie NUR Verwaltungs- und Bürostellen.
+                prompt = f"""Analysieren Sie den folgenden Text und extrahieren Sie ALLE Verwaltungs- und Bürostellen.
+
+WICHTIG: "Stellenausschreiben", "Stellenangebote", "Karriere", "Jobs" sind Überschriften/Seitentitel - NICHT als Stellentitel extrahieren! Suchen Sie nach den tatsächlichen Stellentiteln UNTER diesen Überschriften.
 
 Standort: {location}
 Heutiges Datum: {current_date}
 Quelle URL: {source_url}
 
-KRITISCHE FILTERREGELN - Extrahieren Sie NUR Stellen wenn ALLE Bedingungen erfüllt sind:
-1. Die Stelle ist eine Verwaltungs- oder Büroposition (z.B. "{included_terms}")
-2. Die Stelle enthält NICHT diese Begriffe: "{excluded_terms}"
-3. Die Stelle erfordert KEINE höhere Ausbildung: "{excluded_qualifications}"
-4. Die Stelle ist KEINE Führungsposition (kein Leiter/Manager/Direktor)
-5. Die Stelle ist für Personen mit Berufsausbildung geeignet
-
 Text:
 {chunk}
 
+FILTERREGELN - Extrahieren Sie Stellen die folgende Kriterien erfüllen:
+1. Die Stelle ist eine Verwaltungs-, Büro- oder Sachbearbeiterstelle
+2. Beispiele für PASSENDE Stellen: "{included_terms}"
+3. AUSSCHLIESSEN: "{excluded_terms}"
+4. KEINE Führungspositionen (Leiter, Manager, Direktor, Abteilungsleiter)
+5. KEINE Stellen die zwingend Hochschulabschluss (Bachelor/Master/Diplom) erfordern
+
+WICHTIG FÜR FILTERUNG:
+- Seien Sie NICHT zu streng - im Zweifel eher extrahieren als ignorieren
+- Wenn eine Stelle Verwaltungsaufgaben hat, ist sie relevant
+- Stellenausschreibungen ohne explizite Titel aber mit Verwaltungsbezug sind OK
+- Auch Stellen mit Ausbildungsabschluss + Berufserfahrung extrahieren
+
 Geben Sie ein JSON-Array zurück. Jedes Element repräsentiert EINE gefundene Stelle.
-WICHTIG: Seien Sie EXTREM GRÜNDLICH und erfassen Sie ALLE relevanten Informationen!
 
 [
   {{
@@ -230,58 +237,43 @@ WICHTIG: Seien Sie EXTREM GRÜNDLICH und erfassen Sie ALLE relevanten Informatio
   }}
 ]
 
-KRITISCHE HINWEISE zu occupyStart (SEHR WICHTIG - NICHT VERGESSEN!):
-- Suchen Sie nach: "ab sofort", "nächstmöglich", "zum", "ab", "Einstellungstermin", "Besetzungstermin", "Stellenantritt"
-- "ab sofort" oder "nächstmöglich" = {current_date}
-- "zum 01.01.2025" = "2025-01-01"
-- "ab 15.03.2025" = "2025-03-15"
-- Wenn kein Datum erwähnt wird: null
-- IMMER nach diesem Feld suchen - es ist SEHR WICHTIG!
 
-KRITISCHE HINWEISE zu salary (ABSOLUT KRITISCH - DAS IST SEHR WICHTIG!):
-- Dies ist eines der WICHTIGSTEN Felder! Lesen Sie den Text MEHRMALS durch um Gehaltsinformationen zu finden!
-- Suchen Sie ÜBERALL im Text nach Gehaltsinformationen!
-- Suchen Sie nach diesen EXAKTEN Begriffen (mit oder ohne Leerzeichen):
-  * "Entgeltgruppe" oder "EG" gefolgt von Zahlen/Buchstaben
-  * "TVöD", "TVÖD", "TV-L", "TVL", "Tarifvertrag"
-  * "Besoldungsgruppe" oder "BesGr" oder nur "A" gefolgt von Zahlen (z.B. "A 9", "A10")
-  * "E" gefolgt von Zahlen/Buchstaben (z.B. "E 9b", "E9b", "E 11")
-  * Kombinationen wie "TVÖD E 9b", "EG 9a TVöD", "Entgeltgruppe 6"
-- BEISPIELE für KORREKTE Extraktionen:
-  * Text: "Entgeltgruppe 6" → salary: "EG 6"
-  * Text: "TVöD E 9b" → salary: "TVöD E 9b"
-  * Text: "nach Entgeltgruppe 9a" → salary: "EG 9a"
-  * Text: "Vergütung nach TVöD" → salary: "TVöD"
-  * Text: "bis Besoldungsgruppe A 10" → salary: "bis A 10"
-  * Text: "EG9a TVöD" → salary: "EG 9a TVöD"
-- Wenn mehrere Entgeltgruppen genannt werden (z.B. "bis EG 9a"), nehmen Sie die vollständige Information
-- Wenn nur "TVöD" oder "TV-L" ohne Gruppe erwähnt: geben Sie "TVöD" bzw. "TV-L" zurück
-- WICHTIG: Schauen Sie sich den GESAMTEN Text an, nicht nur den Anfang!
-- Das salary Feld ist EXTREM wichtig - nehmen Sie sich Zeit, es gründlich zu suchen!
+EXTREM WICHTIG - SALARY FELD (HÖCHSTE PRIORITÄT!):
+Das salary Feld ist DAS WICHTIGSTE Feld! Suchen Sie SEHR GRÜNDLICH nach Gehaltsinformationen!
 
-KRITISCHE HINWEISE zu homeOfficeOption:
-- Für gefundene Stellen (hasJob=true): NIEMALS null verwenden!
-- true wenn: "Homeoffice", "Home-Office", "Mobiles Arbeiten", "mobiles Arbeiten", "mobiles arbeiten", "Remote", "remote", "von zuhause", "Telearbeit", "flexible Arbeitsgestaltung" erwähnt wird
-- false wenn: nichts davon erwähnt wird
-- Standard ist false wenn nicht erwähnt!
+Suchen Sie nach diesen Begriffen IM GESAMTEN TEXT:
+- "Entgeltgruppe" + Zahl (z.B. "Entgeltgruppe 6" → "EG 6")
+- "EG" + Zahl (z.B. "EG 9a" → "EG 9a")
+- "TVöD", "TVÖD", "TV-L", "TVL" (mit oder ohne EG/E)
+- "Besoldungsgruppe" oder "BesGr" + Buchstabe/Zahl (z.B. "A 9" → "A 9")
+- "E" + Zahl (z.B. "E 9b" → "E 9b")
+- Auch Formulierungen wie "nach", "bis zu", "Vergütung", "Entlohnung"
 
-KRITISCHE HINWEISE zu foundOn (ABSOLUT KRITISCH!):
-- foundOn MUSS IMMER die VOLLSTÄNDIGE URL sein: {source_url}
-- NIEMALS beschreibenden Text verwenden wie "Main page", "Hauptseite", "PDF: filename"
-- foundOn ist für den Nutzer zum ANKLICKEN gedacht - es MUSS eine vollständige URL sein!
-- Verwenden Sie EXAKT diese URL für foundOn: {source_url}
-- KORREKTE Beispiele: "https://www.example.com/jobs", "https://www.example.com/file.pdf"
-- FALSCHE Beispiele: "Main page", "PDF: file.pdf", "Hauptseite", "Job detail page"
+BEISPIELE:
+- "Die Vergütung erfolgt nach Entgeltgruppe 6 TVöD" → salary: "EG 6 TVöD"
+- "bis EG 9a" → salary: "bis EG 9a"
+- "TVöD E 9b" → salary: "TVöD E 9b"
+- "Besoldungsgruppe A 10" → salary: "A 10"
+- "Vergütung nach TVöD" → salary: "TVöD"
 
-STRENGE FILTERREGELN:
-- NUR Stellen extrahieren die ALLE Filterkriterien erfüllen
-- KEINE Ausbildungs-, Praktikums- oder Studenten-Stellen
-- KEINE Führungspositionen (Leiter, Manager, Direktor, etc.)
-- KEINE Stellen die Bachelor/Master/Hochschulabschluss erfordern
-- Seien Sie EXTREM GRÜNDLICH - vergessen Sie KEINE wichtigen Informationen!
-- Lesen Sie den GESAMTEN Text sorgfältig durch!
-- Bei Unsicherheit ob Führungsposition: NICHT extrahieren
-- Wenn KEINE passende Stelle: [{{"hasJob": false, "comments": "Keine passenden Verwaltungsstellen gefunden"}}]
+STRATEGIE: Lesen Sie den Text ZWEIMAL durch nur um nach salary zu suchen!
+
+KRITISCHE HINWEISE zu occupyStart:
+Suchen Sie nach Eintrittsdatum:
+- "ab sofort" oder "nächstmöglich" → {current_date}
+- "zum 01.01.2025" → "2025-01-01"
+- "ab 15.03.2025" → "2025-03-15"
+
+KRITISCHE HINWEISE zu foundOn:
+- foundOn MUSS die URL sein: {source_url}
+- NIEMALS Text wie "Main page" oder "PDF: filename"
+- Verwenden Sie IMMER: {source_url}
+
+WICHTIGE FILTERHINWEISE:
+- NICHT extrahieren: Ausbildung/Praktikum/Student/Manager/Leiter/Direktor
+- Im Zweifel: Verwaltungsstelle → extrahieren!
+- "Stellenausschreiben"/"Stellenangebote" sind KEINE Stellentitel, nur Überschriften
+- Wenn KEINE Stelle gefunden: [{{"hasJob": false, "comments": "Keine passenden Verwaltungsstellen gefunden"}}]
 
 Antworten Sie NUR mit dem JSON-Array, kein zusätzlicher Text."""
                 
