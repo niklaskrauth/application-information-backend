@@ -13,7 +13,7 @@ class Settings:
     
     # Ollama Configuration (remote AI server)
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://45.93.251.180:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2")
     
     # Application Configuration
     APP_HOST: str = os.getenv("APP_HOST", "0.0.0.0")
