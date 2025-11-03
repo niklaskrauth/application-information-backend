@@ -55,6 +55,46 @@ async def health_check():
     }
 
 
+async def _process_jobs() -> Table:
+    """
+    Internal function to process all jobs.
+    Shared logic between GET and POST endpoints.
+    
+    Returns:
+        Table with rows containing job information for each company
+    
+    Raises:
+        HTTPException: If file not found or processing error occurs
+    """
+    # Check if Excel file exists
+    logger.info(f"Checking if file exists: {settings.EXCEL_FILE_PATH}")
+    if not os.path.exists(settings.EXCEL_FILE_PATH):
+        logger.error(f"Excel file not found: {settings.EXCEL_FILE_PATH}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Excel file not found at {settings.EXCEL_FILE_PATH}"
+        )
+
+    # Create JobProcessor and start processing
+    logger.info("Creating JobProcessor and starting processing...")
+
+    # Create processor and process jobs incrementally
+    processor = JobProcessor(
+        excel_path=settings.EXCEL_FILE_PATH,
+        timeout=settings.REQUEST_TIMEOUT
+    )
+    
+    # Collect all rows from incremental processing
+    rows = []
+    for row in processor.process_jobs_incrementally():
+        rows.append(row)
+    
+    table = Table(rows=rows)
+    
+    logger.info(f"Successfully processed {len(table.rows)} job entries")
+    return table
+
+
 @app.get("/jobs", response_model=Table)
 async def get_jobs():
     """
@@ -72,41 +112,41 @@ async def get_jobs():
         Table with rows containing job information for each company
     """
     try:
-        # Check if Excel file exists
-        logger.info(f"Checking if file exists: {settings.EXCEL_FILE_PATH}")
-        if not os.path.exists(settings.EXCEL_FILE_PATH):
-            logger.error(f"Excel file not found: {settings.EXCEL_FILE_PATH}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"Excel file not found at {settings.EXCEL_FILE_PATH}"
-            )
-
-        # Create JobProcessor and start processing
-        logger.info("Creating JobProcessor and starting processing...")
-
-        # Create processor and process jobs incrementally
-        processor = JobProcessor(
-            excel_path=settings.EXCEL_FILE_PATH,
-            timeout=settings.REQUEST_TIMEOUT
-        )
-        
-        # Collect all rows from incremental processing
-        rows = []
-        for row in processor.process_jobs_incrementally():
-            rows.append(row)
-        
-        table = Table(rows=rows)
-        
-        logger.info(f"Successfully processed {len(table.rows)} job entries")
-        return table
-        
+        return await _process_jobs()
     except FileNotFoundError as e:
         logger.error(f"File not found: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
-    
     except Exception as e:
         logger.error(f"Error processing jobs: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/jobs", response_model=Table)
+async def post_jobs():
+    """
+    Process all company entries from Excel and extract job information (POST version).
+    
+    This endpoint is functionally identical to GET /jobs but uses POST method.
+    It processes entries sequentially:
+    - Scrapes each website
+    - Sends to AI for analysis
+    - Adds to response
+    - Then moves to the next website
+    
+    This approach is more efficient than processing all links at once.
+    
+    Returns:
+        Table with rows containing job information for each company
+    """
+    try:
+        return await _process_jobs()
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error processing jobs: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 if __name__ == "__main__":

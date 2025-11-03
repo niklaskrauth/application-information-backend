@@ -34,11 +34,16 @@ def _get_connection_errors():
 
 ConnectionErrors = _get_connection_errors()
 
-# Job types to exclude from results (trainee, internship, student positions)
+# Job types to exclude from results (trainee, internship, student positions, managers)
 EXCLUDED_JOB_TYPES = [
     "Auszubildung", "Auszubildende", "Auszubildender", "Azubi",
     "Praktikum", "Praktikant", "Praktikanten", "Praktikantin",
-    "Studium", "Student", "Studenten", "Studentin", "Studentische"
+    "Studium", "Student", "Studenten", "Studentin", "Studentische",
+    "Abteilungsleiter", "Abteilungsleiterin", "Abteilungsleitung",
+    "Manager", "Managerin", "Management",
+    "Geschäftsführer", "Geschäftsführerin", "Geschäftsführung",
+    "Direktor", "Direktorin", "Direktion",
+    "Leiter", "Leiterin", "Leitung"
 ]
 
 # Administrative job types to include (whitelist)
@@ -149,7 +154,7 @@ class AIAgent:
         
         return chunks
     
-    def extract_multiple_jobs(self, location: str, website: str, website_to_jobs: str, page_content: str) -> List[Dict[str, Any]]:
+    def extract_multiple_jobs(self, location: str, website: str, website_to_jobs: str, page_content: str, source_url: str = None) -> List[Dict[str, Any]]:
         """
         Extract ALL job information from website content using AI.
         Returns a list of job dictionaries, one for each job found.
@@ -159,6 +164,7 @@ class AIAgent:
             website: Main website URL
             website_to_jobs: Jobs page URL
             page_content: Text content from the jobs page
+            source_url: The actual URL where this content was found (for foundOn field)
             
         Returns:
             List of dictionaries with job information (one per job)
@@ -168,6 +174,10 @@ class AIAgent:
                 "hasJob": False,
                 "comments": "AI analysis disabled - langchain-ollama not installed or Ollama not running"
             }]
+        
+        # Default source_url to website_to_jobs if not provided
+        if source_url is None:
+            source_url = website_to_jobs
         
         try:
             # Chunk content for more efficient processing
@@ -186,47 +196,74 @@ class AIAgent:
             for chunk_idx, chunk in enumerate(chunks):
                 logger.info(f"Processing chunk {chunk_idx + 1}/{len(chunks)} for {location}")
                 
-                prompt = f"""Analysieren Sie den folgenden Text und extrahieren Sie NUR Verwaltungs- und Bürostellen.
+                prompt = f"""Analysieren Sie den folgenden Text SEHR GRÜNDLICH und extrahieren Sie NUR Verwaltungs- und Bürostellen.
 
 Standort: {location}
 Heutiges Datum: {current_date}
+Quelle URL: {source_url}
 
-WICHTIGE FILTERREGELN - Extrahieren Sie NUR Stellen wenn ALLE Bedingungen erfüllt sind:
+KRITISCHE FILTERREGELN - Extrahieren Sie NUR Stellen wenn ALLE Bedingungen erfüllt sind:
 1. Die Stelle ist eine Verwaltungs- oder Büroposition (z.B. "{included_terms}")
 2. Die Stelle enthält NICHT diese Begriffe: "{excluded_terms}"
 3. Die Stelle erfordert KEINE höhere Ausbildung: "{excluded_qualifications}"
-4. Die Stelle ist für Personen mit Berufsausbildung geeignet
+4. Die Stelle ist KEINE Führungsposition (kein Leiter/Manager/Direktor)
+5. Die Stelle ist für Personen mit Berufsausbildung geeignet
 
 Text:
 {chunk}
 
-Geben Sie ein JSON-Array zurück. Jedes Element repräsentiert EINE gefundene Stelle:
+Geben Sie ein JSON-Array zurück. Jedes Element repräsentiert EINE gefundene Stelle.
+WICHTIG: Seien Sie EXTREM GRÜNDLICH und erfassen Sie ALLE relevanten Informationen!
+
 [
   {{
     "hasJob": true,
-    "name": "Exakter Stellentitel",
-    "salary": "Gehaltsinformation (nur wenn explizit erwähnt)" oder null,
-    "homeOfficeOption": true/false/null (nur true wenn EXPLIZIT erwähnt),
-    "period": "Arbeitszeit (z.B. 'Vollzeit', 'Teilzeit')" oder null,
-    "employmentType": "Beschäftigungsart (z.B. 'Unbefristet', 'Befristet')" oder null,
-    "applicationDate": "JJJJ-MM-TT" oder null (Bewerbungsfrist),
-    "occupyStart": "JJJJ-MM-TT" oder null (Stellenantritt/Eintrittsdatum),
-    "foundOn": "Quelle (z.B. 'Hauptseite', 'PDF: dateiname.pdf')" oder null,
-    "comments": "Zusätzliche relevante Informationen" oder null
+    "name": "Exakter vollständiger Stellentitel aus dem Text",
+    "salary": "Gehaltsinformation (z.B. 'EG 6', 'EG 9a', 'TVÖD', 'E 9b', etc.)" oder null,
+    "homeOfficeOption": true oder false (NIEMALS null für gefundene Stellen! true wenn Homeoffice/Remote/mobiles Arbeiten erwähnt wird, sonst false),
+    "period": "Arbeitszeit (z.B. 'Vollzeit', 'Teilzeit', 'Vollzeit/Teilzeit')" oder null,
+    "employmentType": "Beschäftigungsart (z.B. 'Unbefristet', 'Befristet', 'Befristet bis TT.MM.JJJJ')" oder null,
+    "applicationDate": "JJJJ-MM-TT" oder null (letzter Bewerbungstermin/Bewerbungsfrist),
+    "occupyStart": "JJJJ-MM-TT" oder null (Stellenantritt/Eintrittsdatum/Besetzungstermin),
+    "foundOn": "URL der Quelle wo die Stelle gefunden wurde",
+    "comments": "Zusätzliche relevante Informationen (z.B. Voraussetzungen, besondere Hinweise)" oder null
   }}
 ]
 
-WICHTIG zu occupyStart:
-- Extrahieren Sie das Eintrittsdatum/Stellenantritt (z.B. "ab sofort", "zum 01.01.2025", "nächstmöglich")
+KRITISCHE HINWEISE zu occupyStart (SEHR WICHTIG - NICHT VERGESSEN!):
+- Suchen Sie nach: "ab sofort", "nächstmöglich", "zum", "ab", "Einstellungstermin", "Besetzungstermin", "Stellenantritt"
 - "ab sofort" oder "nächstmöglich" = {current_date}
-- Konkrete Datumsangaben im Format JJJJ-MM-TT
-- Wenn kein Eintrittsdatum erwähnt wird: null
+- "zum 01.01.2025" = "2025-01-01"
+- "ab 15.03.2025" = "2025-03-15"
+- Wenn kein Datum erwähnt wird: null
+- IMMER nach diesem Feld suchen - es ist SEHR WICHTIG!
 
-STRENGE REGELN:
+KRITISCHE HINWEISE zu salary:
+- Suchen Sie nach: "EG", "E" (gefolgt von Zahlen/Buchstaben), "TVÖD", "TVöD", "Entgeltgruppe", "Besoldungsgruppe", "A" (gefolgt von Zahlen)
+- Beispiele: "EG 6", "EG 9a", "E 9b", "E9b", "TVÖD E 11", "A 9", "Besoldungsgruppe A 10"
+- NICHT nur Zahlen - wir brauchen die Entgeltgruppe!
+- Wenn nur "TVÖD" erwähnt: "TVÖD" angeben
+- IMMER gründlich nach Gehaltsinformationen suchen!
+
+KRITISCHE HINWEISE zu homeOfficeOption:
+- Für gefundene Stellen (hasJob=true): NIEMALS null verwenden!
+- true wenn: "Homeoffice", "Home-Office", "mobiles Arbeiten", "Remote", "von zuhause" erwähnt wird
+- false wenn: nichts davon erwähnt wird
+- Standard ist false wenn nicht erwähnt!
+
+KRITISCHE HINWEISE zu foundOn:
+- Verwenden Sie IMMER die Quelle URL: {source_url}
+- NIEMALS nur "Main page" oder "PDF: filename" - IMMER die vollständige URL!
+- Die Quelle URL ist oben angegeben
+
+STRENGE FILTERREGELN:
 - NUR Stellen extrahieren die ALLE Filterkriterien erfüllen
 - KEINE Ausbildungs-, Praktikums- oder Studenten-Stellen
+- KEINE Führungspositionen (Leiter, Manager, Direktor, etc.)
 - KEINE Stellen die Bachelor/Master/Hochschulabschluss erfordern
-- Bei Unsicherheit: NICHT extrahieren
+- Seien Sie EXTREM GRÜNDLICH - vergessen Sie KEINE wichtigen Informationen!
+- Lesen Sie den GESAMTEN Text sorgfältig durch!
+- Bei Unsicherheit ob Führungsposition: NICHT extrahieren
 - Wenn KEINE passende Stelle: [{{"hasJob": false, "comments": "Keine passenden Verwaltungsstellen gefunden"}}]
 
 Antworten Sie NUR mit dem JSON-Array, kein zusätzlicher Text."""
@@ -245,6 +282,18 @@ Antworten Sie NUR mit dem JSON-Array, kein zusätzlicher Text."""
                 # Ensure result is a list
                 if isinstance(result, dict):
                     result = [result]
+                
+                # Post-process jobs to ensure correct values
+                for job in result:
+                    if job.get('hasJob', False):
+                        # Ensure homeOfficeOption is never null for found jobs
+                        if job.get('homeOfficeOption') is None:
+                            job['homeOfficeOption'] = False
+                        
+                        # Ensure foundOn is set to source_url if not set or is a text description
+                        found_on_value = job.get('foundOn', '')
+                        if not found_on_value or not isinstance(found_on_value, str) or not found_on_value.startswith('http'):
+                            job['foundOn'] = source_url
                 
                 # Filter out "no jobs found" entries from chunks after the first
                 # Only the first chunk should report "no jobs found" to avoid duplicates

@@ -170,7 +170,7 @@ Or use the convenience scripts:
 
 **On Windows:**
 ```bash
-run.bat
+.\run.bat
 ```
 
 Or manually:
