@@ -81,7 +81,7 @@ class Table:
 - Columns: id, name, url, description
 
 **After:**
-- Location: `src/data/excel.xls`
+- Location: `data/Landratsamt.xlsx`
 - Columns: id, location, website, websiteToJobs
 
 ### 5. Processing Pipeline
@@ -142,7 +142,7 @@ If migrating from v1:
    # With
    OLLAMA_BASE_URL=http://localhost:11434
    OLLAMA_MODEL=llama3.1:8b
-   EXCEL_FILE_PATH=src/data/excel.xls
+   EXCEL_FILE_PATH=data/Landratsamt.xlsx
    AI_RATE_LIMIT_DELAY=0
    ```
 
@@ -163,7 +163,7 @@ If migrating from v1:
 
 3. Update Excel file:
    - Create `src/data/` directory
-   - Move Excel file to `src/data/excel.xls`
+   - Move Excel file to `data/Landratsamt.xlsx`
    - Update columns: id, location, website, websiteToJobs
 
 4. Update frontend integration:
@@ -225,7 +225,7 @@ EXCEL_FILE_PATH=data/applications.xlsx
 ```bash
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.1:8b
-EXCEL_FILE_PATH=src/data/excel.xls
+EXCEL_FILE_PATH=data/Landratsamt.xlsx
 AI_RATE_LIMIT_DELAY=0
 ```
 

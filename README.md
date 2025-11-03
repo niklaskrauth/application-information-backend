@@ -15,7 +15,7 @@ A Python backend using LangChain with Ollama for extracting job information from
 ## Architecture
 
 ```
-Excel File (src/data/excel.xls) → Excel Reader → Website Scraper → AI Agent (Ollama) → Table JSON Response
+Excel File (data/Landratsamt.xlsx) → Excel Reader → Website Scraper → AI Agent (Ollama) → Table JSON Response
 ```
 
 ## Requirements
@@ -105,7 +105,7 @@ OLLAMA_MODEL=llama3.1:8b
 python create_sample_excel.py
 ```
 
-This creates a sample `src/data/excel.xls` file with example company data.
+This creates a sample `data/Landratsamt.xlsx` file with example company data.
 
 ### Alternative: Using Docker
 
@@ -134,7 +134,7 @@ docker run -p 8000:8000 -v $(pwd)/src/data:/app/src/data application-info-backen
 
 ## Excel File Format
 
-The Excel file should be located at `src/data/excel.xls` and have the following columns:
+The Excel file should be located at `data/Landratsamt.xlsx` and have the following columns:
 
 | Column | Type | Required | Description |
 |--------|------|----------|-------------|
@@ -161,7 +161,19 @@ Run the FastAPI server:
 python -m uvicorn app.main:app --reload
 ```
 
-Or:
+Or use the convenience scripts:
+
+**On Linux/Mac:**
+```bash
+./run.sh
+```
+
+**On Windows:**
+```bash
+run.bat
+```
+
+Or manually:
 
 ```bash
 cd app
@@ -177,7 +189,7 @@ The server will start at `http://localhost:8000`
 Process all companies from the Excel file and extract job information.
 
 This endpoint:
-- Reads all company entries from `src/data/excel.xls`
+- Reads all company entries from `data/Landratsamt.xlsx`
 - Scrapes each company's jobs page (websiteToJobs or website)
 - Uses Ollama AI to analyze and extract job details
 - **Extracts ALL jobs found on each company's page** (multiple jobs per company)
@@ -327,7 +339,7 @@ application-information-backend/
 
 ## How It Works
 
-1. **Excel Reading**: The system reads company entries from `src/data/excel.xls` using `ExcelReader`
+1. **Excel Reading**: The system reads company entries from `data/Landratsamt.xlsx` using `ExcelReader`
 2. **Web Scraping**: For each entry, `WebScraper` visits the jobs page (websiteToJobs or website) and extracts text content
 3. **AI Analysis**: `AIAgent` uses LangChain with Ollama to:
    - Analyze job page content
@@ -416,7 +428,7 @@ flake8 app/
 
 3. **"Excel file not found"**
    - Run `python create_sample_excel.py` to create the sample file
-   - Ensure the file is at `src/data/excel.xls`
+   - Ensure the file is at `data/Landratsamt.xlsx`
    - Check the path in `.env` is correct
 
 4. **Import errors**

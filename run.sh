@@ -11,21 +11,27 @@ if [ ! -d "venv" ]; then
 fi
 
 # Activate virtual environment
-source venv/bin/activate
+if ! source venv/bin/activate; then
+    echo "Error: Failed to activate virtual environment"
+    exit 1
+fi
 
 # Install dependencies
 echo "Installing dependencies..."
-pip install -r requirements.txt > /dev/null
+if ! pip install -r requirements.txt > /dev/null; then
+    echo "Warning: Failed to install some dependencies. Please check requirements.txt"
+    echo "Continuing anyway..."
+fi
 
 # Check for .env file
 if [ ! -f ".env" ]; then
     echo "Warning: .env file not found. Copying from .env.example..."
     cp .env.example .env
-    echo "Please edit .env file and add your OpenAI API key!"
+    echo "Please edit .env file and configure your Ollama settings!"
 fi
 
 # Create sample Excel if it doesn't exist
-if [ ! -f "data/applications.xlsx" ]; then
+if [ ! -f "data/Landratsamt.xlsx" ]; then
     echo "Creating sample Excel file..."
     python create_sample_excel.py
 fi
