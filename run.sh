@@ -11,11 +11,17 @@ if [ ! -d "venv" ]; then
 fi
 
 # Activate virtual environment
-source venv/bin/activate
+if ! source venv/bin/activate; then
+    echo "Error: Failed to activate virtual environment"
+    exit 1
+fi
 
 # Install dependencies
 echo "Installing dependencies..."
-pip install -r requirements.txt > /dev/null
+if ! pip install -r requirements.txt > /dev/null; then
+    echo "Warning: Failed to install some dependencies. Please check requirements.txt"
+    echo "Continuing anyway..."
+fi
 
 # Check for .env file
 if [ ! -f ".env" ]; then

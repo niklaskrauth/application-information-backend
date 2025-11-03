@@ -12,10 +12,19 @@ if not exist "venv\" (
 
 REM Activate virtual environment
 call venv\Scripts\activate.bat
+if errorlevel 1 (
+    echo Error: Failed to activate virtual environment
+    pause
+    exit /b 1
+)
 
 REM Install dependencies
 echo Installing dependencies...
 pip install -r requirements.txt >nul 2>&1
+if errorlevel 1 (
+    echo Warning: Failed to install some dependencies. Please check requirements.txt
+    echo Continuing anyway...
+)
 
 REM Check for .env file
 if not exist ".env" (
