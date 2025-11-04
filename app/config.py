@@ -26,6 +26,9 @@ class Settings:
     # Processing Configuration
     MAX_CONCURRENT_REQUESTS: int = int(os.getenv("MAX_CONCURRENT_REQUESTS", "5"))
     REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", "30"))
+    
+    # Frontend Callback Configuration
+    FRONTEND_CALLBACK_URL: str = os.getenv("FRONTEND_CALLBACK_URL", "http://localhost:5173/api/jobs/callback")
 
 
 settings = Settings()
