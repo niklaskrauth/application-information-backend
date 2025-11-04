@@ -58,7 +58,7 @@ async def health_check():
 async def _process_jobs() -> Table:
     """
     Internal function to process all jobs.
-    Shared logic between GET and POST endpoints.
+    Used by the GET /jobs endpoint.
     
     Returns:
         Table with rows containing job information for each company
