@@ -1,7 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
+import httpx
 from app.config import settings
 from app.models import Table
 from app.services.processor import JobProcessor
@@ -58,7 +59,6 @@ async def health_check():
 async def _process_jobs() -> Table:
     """
     Internal function to process all jobs.
-    Shared logic between GET and POST endpoints.
     
     Returns:
         Table with rows containing job information for each company
@@ -95,56 +95,64 @@ async def _process_jobs() -> Table:
     return table
 
 
-@app.get("/jobs", response_model=Table)
-async def get_jobs():
+async def _process_and_callback():
     """
-    Process all company entries from Excel and extract job information.
-    
-    This endpoint processes entries sequentially:
-    - Scrapes each website
-    - Sends to AI for analysis
-    - Adds to response
-    - Then moves to the next website
-    
-    This approach is more efficient than processing all links at once.
-    
-    Returns:
-        Table with rows containing job information for each company
+    Process jobs and send results to frontend callback URL.
+    Runs in background task.
     """
     try:
-        return await _process_jobs()
-    except FileNotFoundError as e:
-        logger.error(f"File not found: {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e))
+        logger.info("Background job processing started")
+        table = await _process_jobs()
+        
+        # Send results to frontend via POST
+        logger.info(f"Sending results to frontend callback: {settings.FRONTEND_CALLBACK_URL}")
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                settings.FRONTEND_CALLBACK_URL,
+                json=table.model_dump()
+            )
+            if response.status_code == 200:
+                logger.info("Successfully sent results to frontend")
+            else:
+                logger.error(f"Failed to send results to frontend: {response.status_code}")
     except Exception as e:
-        logger.error(f"Error processing jobs: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in background processing: {str(e)}")
 
 
-@app.post("/jobs", response_model=Table)
-async def post_jobs():
+@app.get("/jobs")
+async def get_jobs(background_tasks: BackgroundTasks):
     """
-    Process all company entries from Excel and extract job information (POST version).
+    Trigger job processing asynchronously.
     
-    This endpoint is functionally identical to GET /jobs but uses POST method.
-    It processes entries sequentially:
-    - Scrapes each website
-    - Sends to AI for analysis
-    - Adds to response
-    - Then moves to the next website
-    
-    This approach is more efficient than processing all links at once.
+    This endpoint:
+    - Starts job processing in the background
+    - Returns immediately with processing status
+    - Sends completed results to configured frontend callback URL via POST
     
     Returns:
-        Table with rows containing job information for each company
+        Status indicating that processing has started
     """
     try:
-        return await _process_jobs()
-    except FileNotFoundError as e:
-        logger.error(f"File not found: {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e))
+        # Verify Excel file exists before starting background task
+        if not os.path.exists(settings.EXCEL_FILE_PATH):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Excel file not found at {settings.EXCEL_FILE_PATH}"
+            )
+        
+        # Add background task to process jobs and send callback
+        background_tasks.add_task(_process_and_callback)
+        
+        logger.info("Job processing task added to background queue")
+        return {
+            "status": "processing",
+            "message": "Job processing started. Results will be sent to frontend callback when complete.",
+            "callback_url": settings.FRONTEND_CALLBACK_URL
+        }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error processing jobs: {str(e)}")
+        logger.error(f"Error starting job processing: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
