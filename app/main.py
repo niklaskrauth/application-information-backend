@@ -121,33 +121,6 @@ async def get_jobs():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/jobs", response_model=Table)
-async def post_jobs():
-    """
-    Process all company entries from Excel and extract job information (POST version).
-    
-    This endpoint is functionally identical to GET /jobs but uses POST method.
-    It processes entries sequentially:
-    - Scrapes each website
-    - Sends to AI for analysis
-    - Adds to response
-    - Then moves to the next website
-    
-    This approach is more efficient than processing all links at once.
-    
-    Returns:
-        Table with rows containing job information for each company
-    """
-    try:
-        return await _process_jobs()
-    except FileNotFoundError as e:
-        logger.error(f"File not found: {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error processing jobs: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 
 if __name__ == "__main__":
     import uvicorn
