@@ -109,7 +109,7 @@ async def _process_and_callback():
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 settings.FRONTEND_CALLBACK_URL,
-                json=table.model_dump()
+                json=table.model_dump(mode='json')
             )
             if response.status_code == 200:
                 logger.info("Successfully sent results to frontend")
