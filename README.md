@@ -1,6 +1,6 @@
 # Application Information Backend
 
-A Python backend using LangChain with Hugging Face for extracting job information from company websites. The system reads company locations from an Excel sheet, scrapes their job pages, and uses AI to extract structured job information for frontend consumption.
+A Python backend using LangChain with Hugging Face for extracting job information from company websites. The system reads company locations from an Excel sheet, scrapes their job pages, and uses AI to extract structured job information. Results are saved as JSON files that can be uploaded to your website.
 
 **Uses powerful German language models from Hugging Face - optimized for German text processing, no API keys needed!**
 
@@ -9,13 +9,13 @@ A Python backend using LangChain with Hugging Face for extracting job informatio
 - **Excel Integration**: Read company data from Excel sheets
 - **Web Scraping**: Automatically scrape company job pages
 - **AI Job Extraction**: Use LangChain with Hugging Face (German-optimized models) - Local AI processing, no API keys needed, no rate limits
-- **REST API**: FastAPI-based REST API with single GET endpoint
-- **Structured JSON Output**: Returns job data matching frontend TypeScript interfaces
+- **REST API**: FastAPI-based REST API for job processing and export management
+- **JSON File Export**: Saves structured job data as JSON files ready for website upload
 
 ## Architecture
 
 ```
-Excel File (data/Landratsamt.xlsx) → Excel Reader → Website Scraper → AI Agent (Hugging Face) → Table JSON Response
+Excel File (data/Landratsamt.xlsx) → Excel Reader → Website Scraper → AI Agent (Hugging Face) → JSON File Export (data/output/)
 ```
 
 ## Requirements
@@ -198,7 +198,7 @@ python main.py
 
 The server will start at `http://localhost:8000`
 
-### API Endpoint
+### API Endpoints
 
 #### GET /jobs
 
@@ -209,7 +209,55 @@ This endpoint:
 - Scrapes each company's jobs page (websiteToJobs or website)
 - Uses Hugging Face AI models to analyze and extract job details
 - **Extracts ALL jobs found on each company's page** (multiple jobs per company)
-- Returns structured job data matching the frontend interface
+- **Saves results to a JSON file** in the output directory (default: `data/output/`)
+- Returns immediately with processing status
+
+The endpoint starts processing in the background and returns a status response. When processing completes, a timestamped JSON file is created (e.g., `jobs_export_20260102_143000.json`) that can be uploaded to your website.
+
+**Response Format:**
+```json
+{
+  "status": "processing",
+  "message": "Job processing started. Results will be saved to a JSON file when complete.",
+  "output_directory": "data/output"
+}
+```
+
+**Example Request:**
+```bash
+curl http://localhost:8000/jobs
+```
+
+#### GET /exports
+
+List all generated JSON export files.
+
+This endpoint returns a list of all JSON files that have been generated from job processing, including metadata like file size and creation time.
+
+**Response Format:**
+```json
+{
+  "exports": [
+    {
+      "filename": "jobs_export_20260102_143000.json",
+      "path": "data/output/jobs_export_20260102_143000.json",
+      "size_bytes": 12345,
+      "created_at": "2026-01-02T14:30:00"
+    }
+  ],
+  "count": 1,
+  "output_directory": "data/output"
+}
+```
+
+**Example Request:**
+```bash
+curl http://localhost:8000/exports
+```
+
+#### JSON Export File Format
+
+The generated JSON files contain structured job data matching the frontend interface:
 
 **Note:** If a company has multiple job openings, each job will be returned as a separate row in the response with the same `location`, `website`, and `websiteToJobs` fields.
 
@@ -289,21 +337,26 @@ interface TableRow {
 }
 ```
 
-**Example Request:**
-```bash
-curl http://localhost:8000/jobs
-```
+**Using the JSON Files:**
 
-**Example with JavaScript:**
-```javascript
-fetch('http://localhost:8000/jobs')
-  .then(response => response.json())
-  .then(data => {
-    console.log(`Found ${data.rows.length} companies`);
-    data.rows.forEach(row => {
-      console.log(`${row.location}: ${row.hasJob ? 'Has jobs!' : 'No jobs'}`);
-    });
-  });
+After the `/jobs` endpoint completes processing (which runs in the background), you can:
+
+1. List available exports using the `/exports` endpoint
+2. Locate the JSON file in the `data/output/` directory
+3. Upload the JSON file to your website
+4. Parse and use the structured job data in your frontend application
+
+**Example Workflow:**
+```bash
+# Start job processing
+curl http://localhost:8000/jobs
+
+# Wait for processing to complete (monitor logs)
+
+# List available exports
+curl http://localhost:8000/exports
+
+# The JSON file will be at data/output/jobs_export_YYYYMMDD_HHMMSS.json
 ```
 
 #### GET /health
@@ -361,8 +414,10 @@ application-information-backend/
    - Analyze job page content
    - Extract structured job information for **ALL jobs found** (title, salary, home office, etc.)
    - Determine if positions are available
-4. **JSON Response**: All data is structured into a Table with TableRow objects matching the frontend interface
-   - **Multiple jobs per company**: If a company has 3 jobs, 3 separate TableRow entries are returned
+4. **JSON Export**: All data is structured into a Table with TableRow objects and saved as a JSON file
+   - **Multiple jobs per company**: If a company has 3 jobs, 3 separate TableRow entries are created
+   - **Timestamped files**: Each export is saved with a unique timestamp (e.g., `jobs_export_20260102_143000.json`)
+   - **Ready for upload**: The generated JSON file can be uploaded directly to your website
 
 ## Configuration
 
@@ -381,6 +436,9 @@ DEBUG_MODE=True
 
 # Excel File Path
 EXCEL_FILE_PATH=data/Landratsamt.xlsx
+
+# JSON Output Directory
+JSON_OUTPUT_DIR=data/output
 
 # Processing Configuration
 MAX_CONCURRENT_REQUESTS=5

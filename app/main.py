@@ -4,7 +4,9 @@ from contextlib import asynccontextmanager
 from typing import Optional
 import logging
 import os
-import httpx
+import json
+from datetime import datetime
+from pathlib import Path
 from app.config import settings
 from app.models import Table
 from app.services.processor import JobProcessor
@@ -138,26 +140,30 @@ async def _process_jobs() -> Table:
     return table
 
 
-async def _process_and_callback():
+async def _process_and_save_json():
     """
-    Process jobs and send results to frontend callback URL.
+    Process jobs and save results to a JSON file.
     Runs in background task.
     """
     try:
         logger.info("Background job processing started")
         table = await _process_jobs()
         
-        # Send results to frontend via POST
-        logger.info(f"Sending results to frontend callback: {settings.FRONTEND_CALLBACK_URL}")
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                settings.FRONTEND_CALLBACK_URL,
-                json=table.model_dump(mode='json')
-            )
-            if response.status_code == 200:
-                logger.info("Successfully sent results to frontend")
-            else:
-                logger.error(f"Failed to send results to frontend: {response.status_code}")
+        # Create output directory if it doesn't exist
+        output_dir = Path(settings.JSON_OUTPUT_DIR)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate timestamped filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"jobs_export_{timestamp}.json"
+        filepath = output_dir / filename
+        
+        # Save results to JSON file
+        logger.info(f"Saving results to JSON file: {filepath}")
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(table.model_dump(mode='json'), f, indent=2, ensure_ascii=False, default=str)
+        
+        logger.info(f"Successfully saved results to {filepath}")
     except Exception as e:
         logger.error(f"Error in background processing: {str(e)}")
 
@@ -170,7 +176,7 @@ async def get_jobs(background_tasks: BackgroundTasks):
     This endpoint:
     - Starts job processing in the background
     - Returns immediately with processing status
-    - Sends completed results to configured frontend callback URL via POST
+    - Saves completed results to a JSON file in the output directory
     
     Returns:
         Status indicating that processing has started
@@ -183,19 +189,61 @@ async def get_jobs(background_tasks: BackgroundTasks):
                 detail=f"Excel file not found at {settings.EXCEL_FILE_PATH}"
             )
         
-        # Add background task to process jobs and send callback
-        background_tasks.add_task(_process_and_callback)
+        # Add background task to process jobs and save to JSON
+        background_tasks.add_task(_process_and_save_json)
         
         logger.info("Job processing task added to background queue")
         return {
             "status": "processing",
-            "message": "Job processing started. Results will be sent to frontend callback when complete.",
-            "callback_url": settings.FRONTEND_CALLBACK_URL
+            "message": "Job processing started. Results will be saved to a JSON file when complete.",
+            "output_directory": settings.JSON_OUTPUT_DIR
         }
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error starting job processing: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/exports")
+async def list_exports():
+    """
+    List all generated JSON export files.
+    
+    Returns:
+        List of available JSON export files with metadata
+    """
+    try:
+        output_dir = Path(settings.JSON_OUTPUT_DIR)
+        
+        # Create directory if it doesn't exist
+        if not output_dir.exists():
+            return {
+                "exports": [],
+                "count": 0,
+                "message": "No exports directory found"
+            }
+        
+        # Find all JSON files in the output directory
+        json_files = list(output_dir.glob("jobs_export_*.json"))
+        
+        exports = []
+        for filepath in sorted(json_files, reverse=True):  # Most recent first
+            stat = filepath.stat()
+            exports.append({
+                "filename": filepath.name,
+                "path": str(filepath.relative_to(Path.cwd())),
+                "size_bytes": stat.st_size,
+                "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            })
+        
+        return {
+            "exports": exports,
+            "count": len(exports),
+            "output_directory": settings.JSON_OUTPUT_DIR
+        }
+    except Exception as e:
+        logger.error(f"Error listing exports: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
