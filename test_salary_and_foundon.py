@@ -131,8 +131,8 @@ def test_ai_agent_initialization():
         print(f"  Provider: {agent.provider}")
         print(f"  Max chunk length: {agent.MAX_CHUNK_LENGTH}")
     else:
-        print("⚠ AI agent is disabled (Ollama not available)")
-        print("  This is expected if Ollama is not running")
+        print("⚠ AI agent is disabled (Hugging Face models not available)")
+        print("  This is expected if Hugging Face models are not loaded")
     
     return True
 

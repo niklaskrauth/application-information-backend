@@ -1,22 +1,25 @@
-# Migration from v1 to v2
+# Migration from v1 to v2 to v3
 
 ## Overview
 
-The application has been refactored from a general-purpose website information extraction system to a focused job extraction tool using Ollama AI for local processing.
+The application has evolved from OpenAI to Ollama, and now to Hugging Face with German language models for enhanced local processing and German-specific optimization.
 
-## Key Changes
+## Latest Changes (v3): Ollama → Hugging Face
 
-### 1. AI Provider: OpenAI → Ollama
+### AI Provider: Ollama → Hugging Face
 
-**Before (v1):**
-- Used OpenAI GPT-3.5-turbo
-- Required OPENAI_API_KEY
-- langchain-openai package
-
-**After (v2):**
-- Uses Ollama with LLaMA 3.1 models
-- No API key required (runs locally)
+**Before (v2):**
+- Used Ollama with LLaMA 3.1 models
+- Required Ollama server running
 - langchain-ollama package
+
+**After (v3):**
+- Uses Hugging Face with German-optimized models
+- No external server required
+- langchain-huggingface, transformers, sentence-transformers packages
+- Specifically uses German language models:
+  - **Text Generation**: Veronika-T/mistral-german-7b
+  - **Embeddings**: deutsche-telekom/gbert-large-paraphrase-cosine
 
 ### 2. API Endpoints: Multiple → Single
 
@@ -129,9 +132,44 @@ class Table:
 - `processor.py` - Simplified to `JobProcessor`, no PDF/image handling
 - `excel_reader.py` - Updated for new column names
 
-## Migration Steps
+## Migration Steps (v2 → v3)
 
-If migrating from v1:
+If migrating from v2 (Ollama):
+
+1. Update `.env` file:
+   ```bash
+   # Remove
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_MODEL=llama3.1:8b
+   
+   # Add
+   HUGGINGFACE_MODEL=Veronika-T/mistral-german-7b
+   HUGGINGFACE_EMBEDDING_MODEL=deutsche-telekom/gbert-large-paraphrase-cosine
+   HUGGINGFACE_API_TOKEN=
+   ```
+
+2. Update dependencies:
+   ```bash
+   pip uninstall langchain-ollama
+   pip install langchain-huggingface transformers sentence-transformers torch
+   # Or simply
+   pip install -r requirements.txt
+   ```
+
+3. Remove Ollama (optional):
+   ```bash
+   # You can now uninstall Ollama if not needed elsewhere
+   # No Ollama server needs to be running
+   ```
+
+4. First run will download models:
+   - Models are cached in `~/.cache/huggingface/`
+   - Approximately 15-20GB total download
+   - This happens once, subsequent runs use cached models
+
+## Migration Steps (v1 → v3)
+
+If migrating directly from v1:
 
 1. Update `.env` file:
    ```bash
@@ -140,25 +178,17 @@ If migrating from v1:
    EXCEL_FILE_PATH=data/applications.xlsx
    
    # With
-   OLLAMA_BASE_URL=http://localhost:11434
-   OLLAMA_MODEL=llama3.1:8b
+   HUGGINGFACE_MODEL=Veronika-T/mistral-german-7b
+   HUGGINGFACE_EMBEDDING_MODEL=deutsche-telekom/gbert-large-paraphrase-cosine
+   HUGGINGFACE_API_TOKEN=
    EXCEL_FILE_PATH=data/Landratsamt.xlsx
-   AI_RATE_LIMIT_DELAY=0
    ```
 
-2. Install and configure Ollama:
+2. Install Hugging Face dependencies:
    ```bash
-   # Install Ollama (visit https://ollama.ai)
-   curl -fsSL https://ollama.ai/install.sh | sh  # Linux/macOS
-   
-   # Start Ollama
-   ollama serve
-   
-   # Pull model
-   ollama pull llama3.1:8b
-   
-   # Install Python package
-   pip install langchain-ollama
+   pip install langchain-huggingface transformers sentence-transformers torch
+   # Or
+   pip install -r requirements.txt
    ```
 
 3. Update Excel file:
@@ -188,16 +218,17 @@ If migrating from v1:
    });
    ```
 
-## Benefits of v2
+## Benefits of v3
 
-1. **Simpler API** - Single endpoint, easier to use
-2. **Faster Processing** - No PDF/image extraction
-3. **Cost-Effective** - Ollama is completely free, runs locally
-4. **No Rate Limits** - Local processing means unlimited requests
-5. **Focused Purpose** - Specifically designed for job extraction
-6. **Frontend Aligned** - Response format matches frontend interface exactly
-7. **Fewer Dependencies** - Lighter installation, fewer potential issues
+1. **German Language Optimized** - Uses models specifically trained for German text
+2. **No External Server** - Everything runs in Python process, no Ollama server needed
+3. **Simpler Setup** - Just install Python packages, no additional software
+4. **Cost-Effective** - Hugging Face models are free, runs locally
+5. **No Rate Limits** - Local processing means unlimited requests
+6. **Focused Purpose** - Specifically designed for German job extraction
+7. **Frontend Aligned** - Response format matches frontend interface exactly
 8. **Privacy** - All data processing happens locally
+9. **Better German Understanding** - Dedicated German models vs multilingual
 
 ## Performance Comparison
 
@@ -212,6 +243,15 @@ If migrating from v1:
 - Dependencies: 10 core packages
 - API costs: Free (local processing)
 - Works offline once model is downloaded
+- Requires Ollama server running
+
+**v3:**
+- Time per entry: 10-60 seconds (depends on hardware)
+- Dependencies: 12 core packages
+- API costs: Free (local processing)
+- Works offline once models are downloaded
+- No external server required
+- Optimized for German language
 
 ## Configuration
 
@@ -227,6 +267,14 @@ OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.1:8b
 EXCEL_FILE_PATH=data/Landratsamt.xlsx
 AI_RATE_LIMIT_DELAY=0
+```
+
+**v3 .env:**
+```bash
+HUGGINGFACE_MODEL=Veronika-T/mistral-german-7b
+HUGGINGFACE_EMBEDDING_MODEL=deutsche-telekom/gbert-large-paraphrase-cosine
+HUGGINGFACE_API_TOKEN=
+EXCEL_FILE_PATH=data/Landratsamt.xlsx
 ```
 
 ## API Documentation Update
