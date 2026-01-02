@@ -41,6 +41,7 @@ Thumbs.db
 
 # Application specific
 data/*.xlsx
+data/output/*.json
 src/data/*.xls
 src/data/*.xlsx
 logs/
