@@ -89,9 +89,12 @@ class AIAgent:
             
             # Initialize German text generation model
             logger.info(f"Initializing German text generation model: {settings.HUGGINGFACE_MODEL}")
+            logger.info("Downloading model if not cached locally (this may take a while on first run)...")
+            
             tokenizer = AutoTokenizer.from_pretrained(
                 settings.HUGGINGFACE_MODEL,
-                token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None
+                token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None,
+                local_files_only=False  # Allow downloading if not cached
             )
             
             # Try GPU first, fall back to CPU if GPU memory is insufficient
@@ -99,7 +102,8 @@ class AIAgent:
                 model = AutoModelForCausalLM.from_pretrained(
                     settings.HUGGINGFACE_MODEL,
                     device_map="auto",
-                    token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None
+                    token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None,
+                    local_files_only=False  # Allow downloading if not cached
                 )
                 logger.info("Text generation model loaded with GPU acceleration")
             except (RuntimeError, OSError) as e:
@@ -108,8 +112,11 @@ class AIAgent:
                 model = AutoModelForCausalLM.from_pretrained(
                     settings.HUGGINGFACE_MODEL,
                     device_map="cpu",
-                    token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None
+                    token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None,
+                    local_files_only=False  # Allow downloading if not cached
                 )
+            
+            logger.info("Model downloaded and cached successfully")
             
             text_generation_pipeline = pipeline(
                 "text-generation",
@@ -126,6 +133,8 @@ class AIAgent:
             
             # Initialize German embedding model (using same device strategy for consistency)
             logger.info(f"Initializing German embedding model: {settings.HUGGINGFACE_EMBEDDING_MODEL}")
+            logger.info("Downloading embedding model if not cached locally...")
+            
             # Check if CUDA is available before trying to use GPU
             try:
                 import torch
@@ -157,7 +166,9 @@ class AIAgent:
                     encode_kwargs={'normalize_embeddings': True}
                 )
             
+            logger.info("Embedding model downloaded and cached successfully")
             logger.info(f"AI Agent initialized with Hugging Face provider (model: {settings.HUGGINGFACE_MODEL}, embeddings: {settings.HUGGINGFACE_EMBEDDING_MODEL})")
+            logger.info("Models are now cached locally and available for offline use")
         except Exception as e:
             logger.warning(f"Failed to initialize Hugging Face: {str(e)}. AI agent will be disabled. Make sure you have enough memory and the models can be downloaded.")
             self.enabled = False
