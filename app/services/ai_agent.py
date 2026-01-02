@@ -6,17 +6,19 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# Import Ollama and handle connection errors
+# Import Hugging Face and handle connection errors
 try:
-    from langchain_ollama import ChatOllama
+    from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
+    from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 except ImportError:
-    ChatOllama = None
-    logger.warning("langchain-ollama is not installed. Install it with: pip install langchain-ollama")
+    HuggingFacePipeline = None
+    HuggingFaceEmbeddings = None
+    logger.warning("langchain-huggingface or transformers is not installed. Install them with: pip install langchain-huggingface transformers sentence-transformers")
 
 # Build tuple of connection error types to handle
 def _get_connection_errors():
     """Get tuple of connection error types based on available libraries"""
-    errors = [ConnectionRefusedError, ConnectionError]
+    errors = [ConnectionRefusedError, ConnectionError, OSError, RuntimeError]
     
     try:
         import requests
@@ -67,44 +69,72 @@ EXCLUDED_QUALIFICATIONS = [
 
 
 class AIAgent:
-    """LangChain AI Agent using Ollama for analyzing job information from websites"""
+    """LangChain AI Agent using Hugging Face for analyzing job information from websites"""
     
     # Configuration constants
     MAX_CHUNK_LENGTH = 12000  # Characters per chunk for processing
     
     def __init__(self):
-        self.provider = "ollama"
+        self.provider = "huggingface"
         self.enabled = False
         self.llm: Optional[Any] = None
+        self.embeddings: Optional[Any] = None
         
-        if ChatOllama is None:
-            logger.error("Ollama provider requires langchain-ollama. Install it with: pip install langchain-ollama")
+        if HuggingFacePipeline is None or HuggingFaceEmbeddings is None:
+            logger.error("Hugging Face provider requires langchain-huggingface and transformers. Install them with: pip install langchain-huggingface transformers sentence-transformers")
             return
         
         try:
             self.enabled = True
-            self.llm = ChatOllama(
-                model=settings.OLLAMA_MODEL,
-                base_url=settings.OLLAMA_BASE_URL,
-                temperature=0.1,  # Lower temperature for more consistent results
-                num_ctx=4096,  # Reduced context window for efficiency
-                timeout=90  # Increased timeout for remote server
+            
+            # Initialize German text generation model
+            logger.info(f"Initializing German text generation model: {settings.HUGGINGFACE_MODEL}")
+            tokenizer = AutoTokenizer.from_pretrained(
+                settings.HUGGINGFACE_MODEL,
+                token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None
             )
-            logger.info(f"AI Agent initialized with Ollama provider (model: {settings.OLLAMA_MODEL}, base_url: {settings.OLLAMA_BASE_URL})")
+            model = AutoModelForCausalLM.from_pretrained(
+                settings.HUGGINGFACE_MODEL,
+                device_map="auto",
+                token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None
+            )
+            
+            text_generation_pipeline = pipeline(
+                "text-generation",
+                model=model,
+                tokenizer=tokenizer,
+                max_new_tokens=2048,
+                temperature=0.1,
+                do_sample=True,
+                top_p=0.95,
+                repetition_penalty=1.15
+            )
+            
+            self.llm = HuggingFacePipeline(pipeline=text_generation_pipeline)
+            
+            # Initialize German embedding model
+            logger.info(f"Initializing German embedding model: {settings.HUGGINGFACE_EMBEDDING_MODEL}")
+            self.embeddings = HuggingFaceEmbeddings(
+                model_name=settings.HUGGINGFACE_EMBEDDING_MODEL,
+                model_kwargs={'device': 'cpu'},
+                encode_kwargs={'normalize_embeddings': True}
+            )
+            
+            logger.info(f"AI Agent initialized with Hugging Face provider (model: {settings.HUGGINGFACE_MODEL}, embeddings: {settings.HUGGINGFACE_EMBEDDING_MODEL})")
         except Exception as e:
-            logger.warning(f"Failed to initialize Ollama: {str(e)}. AI agent will be disabled. Make sure Ollama is running at {settings.OLLAMA_BASE_URL}")
+            logger.warning(f"Failed to initialize Hugging Face: {str(e)}. AI agent will be disabled. Make sure you have enough memory and the models can be downloaded.")
             self.enabled = False
             return
         
         # Initialize to current time to avoid artificial delay on first call
         self.last_api_call_time = time.time()
-        self.min_delay_between_calls = 0  # No rate limiting for Ollama
+        self.min_delay_between_calls = 0  # No rate limiting for local Hugging Face
         # Set reasonable content length for chunking
         self.max_chunk_length = self.MAX_CHUNK_LENGTH
     
     def _rate_limit(self):
         """Implement rate limiting by adding delays between API calls"""
-        # No rate limiting for Ollama - removed delay
+        # No rate limiting for Hugging Face - removed delay
         pass
     
     def _chunk_content(self, content: str, max_length: int = None) -> List[str]:
@@ -172,7 +202,7 @@ class AIAgent:
         if not self.enabled:
             return [{
                 "hasJob": False,
-                "comments": "AI analysis disabled - langchain-ollama not installed or Ollama not running"
+                "comments": "AI analysis disabled - langchain-huggingface or transformers not installed or models not available"
             }]
         
         # Default source_url to website_to_jobs if not provided
@@ -278,7 +308,12 @@ Suchen Sie nach Eintrittsdatum:
 Antworten Sie NUR mit dem JSON-Array, kein zusätzlicher Text."""
                 
                 response = self.llm.invoke(prompt)
-                content = response.content.strip()
+                # HuggingFacePipeline returns a string directly
+                if isinstance(response, str):
+                    content = response.strip()
+                else:
+                    # Handle case where response might be an object with content attribute
+                    content = getattr(response, 'content', str(response)).strip()
                 
                 # Try to extract JSON from the response
                 if "```json" in content:
@@ -339,11 +374,11 @@ Antworten Sie NUR mit dem JSON-Array, kein zusätzlicher Text."""
             return all_jobs
             
         except ConnectionErrors as e:
-            logger.error(f"Connection error when connecting to Ollama at {settings.OLLAMA_BASE_URL}: {str(e)}")
-            logger.error("Please ensure Ollama is running")
+            logger.error(f"Connection error when loading Hugging Face models: {str(e)}")
+            logger.error("Please ensure you have enough memory and internet connection to download models")
             return [{
                 "hasJob": False,
-                "comments": f"Cannot connect to Ollama at {settings.OLLAMA_BASE_URL}"
+                "comments": f"Cannot load Hugging Face models: {str(e)}"
             }]
         except json.JSONDecodeError as e:
             logger.error(f"Error parsing AI response as JSON: {str(e)}")
