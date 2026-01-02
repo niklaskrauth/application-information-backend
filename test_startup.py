@@ -11,12 +11,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def test_startup_event_registered():
-    """Test that the startup event is registered in FastAPI"""
+    """Test that the lifespan is configured in FastAPI"""
     from app.main import app
     
-    # Check that startup event handlers exist
-    assert len(app.router.on_startup) > 0, "No startup event handlers registered"
-    print("✓ Startup event handler registered")
+    # Check that lifespan is configured
+    assert app.router.lifespan_context is not None, "Lifespan should be configured"
+    print("✓ Lifespan configured in FastAPI")
 
 
 def test_global_ai_agent_exists():

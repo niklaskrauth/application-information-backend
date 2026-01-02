@@ -17,15 +17,15 @@ def test_startup_flow_simulation():
     """
     print("Testing startup flow simulation...")
     
-    # Import the main module
-    from app import main
+    # Import the ai_agent directly
+    from app.main import ai_agent, app
     
     # Verify ai_agent is initialized to None
-    assert main.ai_agent is None, "ai_agent should be None before startup"
+    assert ai_agent is None, "ai_agent should be None before startup"
     print("  ✓ ai_agent initially None")
     
     # Simulate what would happen during startup (without actually downloading models)
-    # In production, startup_event() would create a real AIAgent
+    # In production, lifespan() would create a real AIAgent
     # For this test, we just verify the structure is correct
     
     # Verify that we can import AIAgent
@@ -47,20 +47,21 @@ def test_startup_flow_simulation():
     assert 'ai_agent' in params, "JobProcessor should accept ai_agent parameter"
     print("  ✓ JobProcessor accepts ai_agent parameter")
     
-    # Verify the startup event function exists and is properly decorated
-    assert hasattr(main, 'startup_event'), "startup_event function should exist"
-    print("  ✓ startup_event function exists")
+    # Verify the lifespan function exists
+    from app.main import lifespan
+    assert lifespan is not None, "lifespan function should exist"
+    print("  ✓ lifespan function exists")
     
-    # Verify that the app has the startup event registered
-    assert len(main.app.router.on_startup) > 0, "Startup events should be registered"
-    print("  ✓ Startup events are registered with FastAPI")
+    # Verify that the app has lifespan configured
+    assert app.router.lifespan_context is not None, "Lifespan should be configured"
+    print("  ✓ Lifespan is configured with FastAPI")
     
     print()
     print("✓ Startup flow simulation passed!")
     print()
     print("In production:")
     print("1. FastAPI app starts")
-    print("2. startup_event() is called automatically")
+    print("2. lifespan() is called automatically")
     print("3. AIAgent() is created (downloads/loads models)")
     print("4. Global ai_agent is set")
     print("5. All requests use the same ai_agent instance")

@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from typing import Optional
 import logging
 import os
 import httpx
@@ -16,30 +18,14 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
-app = FastAPI(
-    title="Application Information Backend",
-    description="Backend API for extracting job information from company websites using AI",
-    version="2.0.0"
-)
-
-# Configure CORS for frontend communication
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Configure properly for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Global AI agent instance (initialized on startup)
-ai_agent: AIAgent = None
+ai_agent: Optional[AIAgent] = None
 
 
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """
-    Initialize AI models on startup.
+    Lifespan context manager for startup and shutdown events.
     
     This ensures that:
     - Models are downloaded if not already cached
@@ -62,6 +48,29 @@ async def startup_event():
         ai_agent = None
     
     logger.info("Application startup complete")
+    
+    yield
+    
+    # Cleanup (if needed)
+    logger.info("Application shutting down...")
+
+
+# Create FastAPI app with lifespan
+app = FastAPI(
+    title="Application Information Backend",
+    description="Backend API for extracting job information from company websites using AI",
+    version="2.0.0",
+    lifespan=lifespan
+)
+
+# Configure CORS for frontend communication
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure properly for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")
