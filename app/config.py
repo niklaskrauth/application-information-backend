@@ -26,12 +26,13 @@ class Settings:
     
     # File paths
     EXCEL_FILE_PATH: str = os.getenv("EXCEL_FILE_PATH", "data/Landratsamt.xlsx")
+    JSON_OUTPUT_DIR: str = os.getenv("JSON_OUTPUT_DIR", "data/output")
     
     # Processing Configuration
     MAX_CONCURRENT_REQUESTS: int = int(os.getenv("MAX_CONCURRENT_REQUESTS", "5"))
     REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", "30"))
     
-    # Frontend Callback Configuration
+    # Frontend Callback Configuration (deprecated - kept for backward compatibility)
     FRONTEND_CALLBACK_URL: str = os.getenv("FRONTEND_CALLBACK_URL", "http://localhost:5173/api/jobs/callback")
 
 
