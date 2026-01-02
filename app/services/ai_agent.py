@@ -93,11 +93,23 @@ class AIAgent:
                 settings.HUGGINGFACE_MODEL,
                 token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None
             )
-            model = AutoModelForCausalLM.from_pretrained(
-                settings.HUGGINGFACE_MODEL,
-                device_map="auto",
-                token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None
-            )
+            
+            # Try GPU first, fall back to CPU if GPU memory is insufficient
+            try:
+                model = AutoModelForCausalLM.from_pretrained(
+                    settings.HUGGINGFACE_MODEL,
+                    device_map="auto",
+                    token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None
+                )
+                logger.info("Text generation model loaded with GPU acceleration")
+            except (RuntimeError, OSError) as e:
+                logger.warning(f"Failed to load model with GPU (device_map='auto'): {str(e)}")
+                logger.info("Falling back to CPU-only mode for text generation")
+                model = AutoModelForCausalLM.from_pretrained(
+                    settings.HUGGINGFACE_MODEL,
+                    device_map="cpu",
+                    token=settings.HUGGINGFACE_API_TOKEN if settings.HUGGINGFACE_API_TOKEN else None
+                )
             
             text_generation_pipeline = pipeline(
                 "text-generation",
@@ -112,13 +124,23 @@ class AIAgent:
             
             self.llm = HuggingFacePipeline(pipeline=text_generation_pipeline)
             
-            # Initialize German embedding model
+            # Initialize German embedding model (using same device strategy for consistency)
             logger.info(f"Initializing German embedding model: {settings.HUGGINGFACE_EMBEDDING_MODEL}")
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name=settings.HUGGINGFACE_EMBEDDING_MODEL,
-                model_kwargs={'device': 'cpu'},
-                encode_kwargs={'normalize_embeddings': True}
-            )
+            try:
+                self.embeddings = HuggingFaceEmbeddings(
+                    model_name=settings.HUGGINGFACE_EMBEDDING_MODEL,
+                    model_kwargs={'device': 'cuda'},
+                    encode_kwargs={'normalize_embeddings': True}
+                )
+                logger.info("Embedding model loaded with GPU acceleration")
+            except (RuntimeError, OSError) as e:
+                logger.warning(f"Failed to load embeddings with GPU: {str(e)}")
+                logger.info("Falling back to CPU for embeddings")
+                self.embeddings = HuggingFaceEmbeddings(
+                    model_name=settings.HUGGINGFACE_EMBEDDING_MODEL,
+                    model_kwargs={'device': 'cpu'},
+                    encode_kwargs={'normalize_embeddings': True}
+                )
             
             logger.info(f"AI Agent initialized with Hugging Face provider (model: {settings.HUGGINGFACE_MODEL}, embeddings: {settings.HUGGINGFACE_EMBEDDING_MODEL})")
         except Exception as e:
