@@ -14,7 +14,7 @@ langchain-community==0.2.16
 langchain-huggingface==0.0.2
 transformers==4.36.0
 sentence-transformers==2.2.2
-torch==2.1.2
+torch>=2.1.2
 
 # Web scraping and content extraction
 beautifulsoup4==4.12.3

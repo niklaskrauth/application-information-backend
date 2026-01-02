@@ -16,11 +16,12 @@ class JobProcessor:
     # Configuration constants
     MAX_LINKED_PAGE_CONTENT_LENGTH = 3000  # Max characters from linked job pages
     
-    def __init__(self, excel_path: str, timeout: int = 30):
+    def __init__(self, excel_path: str, timeout: int = 30, ai_agent: Optional[AIAgent] = None):
         self.excel_reader = ExcelReader(excel_path)
         self.web_scraper = WebScraper(timeout=timeout)
         self.content_extractor = ContentExtractor(timeout=timeout)
-        self.ai_agent = AIAgent()
+        # Use provided ai_agent or create new one if not provided (for backward compatibility)
+        self.ai_agent = ai_agent if ai_agent is not None else AIAgent()
     
     @staticmethod
     def _parse_date(date_str: str) -> Optional[date]:

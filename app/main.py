@@ -6,6 +6,7 @@ import httpx
 from app.config import settings
 from app.models import Table
 from app.services.processor import JobProcessor
+from app.services.ai_agent import AIAgent
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +31,37 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global AI agent instance (initialized on startup)
+ai_agent: AIAgent = None
+
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Initialize AI models on startup.
+    
+    This ensures that:
+    - Models are downloaded if not already cached
+    - Models are loaded into memory and ready to use
+    - First request doesn't have to wait for model download/loading
+    """
+    global ai_agent
+    logger.info("Starting application initialization...")
+    logger.info("Downloading and loading AI models (this may take a while on first run)...")
+    
+    try:
+        ai_agent = AIAgent()
+        if ai_agent.enabled:
+            logger.info("AI models successfully loaded and ready!")
+        else:
+            logger.warning("AI agent is disabled. Check logs for details.")
+    except Exception as e:
+        logger.error(f"Failed to initialize AI agent: {str(e)}")
+        logger.error("Application will continue but AI features will be unavailable")
+        ai_agent = None
+    
+    logger.info("Application startup complete")
 
 
 @app.get("/")
@@ -79,9 +111,11 @@ async def _process_jobs() -> Table:
     logger.info("Creating JobProcessor and starting processing...")
 
     # Create processor and process jobs incrementally
+    # Use the global ai_agent instance that was initialized at startup
     processor = JobProcessor(
         excel_path=settings.EXCEL_FILE_PATH,
-        timeout=settings.REQUEST_TIMEOUT
+        timeout=settings.REQUEST_TIMEOUT,
+        ai_agent=ai_agent
     )
     
     # Collect all rows from incremental processing
