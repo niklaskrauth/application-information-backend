@@ -5,7 +5,8 @@ Get up and running with the Application Information Backend in 5 minutes!
 ## Prerequisites
 
 - Python 3.8 or higher
-- Ollama (local AI, no API key needed, no rate limits)
+- 8GB RAM minimum (16GB recommended)
+- Internet connection for initial model download
 
 ## Step 1: Clone and Install
 
@@ -22,33 +23,26 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Step 2: Configure Ollama
+## Step 2: Configure Hugging Face
 
 ```bash
-# 1. Install Ollama
-# Visit https://ollama.ai and follow installation instructions for your OS
-# macOS/Linux: curl -fsSL https://ollama.ai/install.sh | sh
-
-# 2. Start Ollama and pull a model
-ollama serve  # Start Ollama server
-# In a new terminal:
-ollama pull llama3.1:8b  # Download recommended model (8GB RAM required)
-
-# 3. Configure the application
+# Configure the application
 cp .env.example .env
 nano .env
 ```
 
 Set in `.env`:
 ```
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1:8b
-AI_RATE_LIMIT_DELAY=0
+HUGGINGFACE_MODEL=Veronika-T/mistral-german-7b
+HUGGINGFACE_EMBEDDING_MODEL=deutsche-telekom/gbert-large-paraphrase-cosine
+HUGGINGFACE_API_TOKEN=
 ```
 
-**Note:** Also install the langchain-ollama package:
+**Note:** Models will be automatically downloaded on first run (~15-20GB total). This happens once and models are cached locally.
+
+**Optional:** If you want GPU acceleration for faster processing:
 ```bash
-pip install langchain-ollama
+pip install torch --index-url https://download.pytorch.org/whl/cu118
 ```
 
 ## Step 3: Create Sample Data
@@ -156,20 +150,19 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Ollama errors
+### Hugging Face errors
 
 ```bash
-# Make sure Ollama is running
-ollama serve
+# Ensure you have enough RAM (8GB minimum, 16GB recommended)
 
-# Verify model is downloaded
-ollama list
+# Check model cache location
+ls ~/.cache/huggingface/
 
-# If model is missing, download it
-ollama pull llama3.1:8b
+# Clear cache if needed and retry
+rm -rf ~/.cache/huggingface/
 
-# Install langchain-ollama package
-pip install langchain-ollama
+# Install/reinstall Hugging Face packages
+pip install langchain-huggingface transformers sentence-transformers
 ```
 
 ### Excel file not found

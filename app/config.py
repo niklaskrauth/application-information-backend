@@ -8,12 +8,16 @@ class Settings:
     """Application settings loaded from environment variables"""
     
     # AI Provider Configuration
-    # Using Ollama (local AI)
-    AI_PROVIDER: str = "ollama"
+    # Using Hugging Face (German models)
+    AI_PROVIDER: str = "huggingface"
     
-    # Ollama Configuration (remote AI server)
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://45.93.251.180:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2")
+    # Hugging Face Configuration
+    # German text generation model (for job extraction)
+    HUGGINGFACE_MODEL: str = os.getenv("HUGGINGFACE_MODEL", "Veronika-T/mistral-german-7b")
+    # German embedding model (for semantic search and analysis)
+    HUGGINGFACE_EMBEDDING_MODEL: str = os.getenv("HUGGINGFACE_EMBEDDING_MODEL", "deutsche-telekom/gbert-large-paraphrase-cosine")
+    # Hugging Face API token (optional, for accessing gated models)
+    HUGGINGFACE_API_TOKEN: str = os.getenv("HUGGINGFACE_API_TOKEN", "")
     
     # Application Configuration
     APP_HOST: str = os.getenv("APP_HOST", "0.0.0.0")

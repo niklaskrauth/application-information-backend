@@ -27,7 +27,7 @@ fi
 if [ ! -f ".env" ]; then
     echo "Warning: .env file not found. Copying from .env.example..."
     cp .env.example .env
-    echo "Please edit .env file and configure your Ollama settings!"
+    echo "Please edit .env file and configure your Hugging Face settings if needed!"
 fi
 
 # Create sample Excel if it doesn't exist

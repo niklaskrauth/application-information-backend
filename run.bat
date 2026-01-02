@@ -30,7 +30,7 @@ REM Check for .env file
 if not exist ".env" (
     echo Warning: .env file not found. Copying from .env.example...
     copy .env.example .env >nul
-    echo Please edit .env file and configure your Ollama settings!
+    echo Please edit .env file and configure your Hugging Face settings if needed!
 )
 
 REM Create sample Excel if it doesn't exist
