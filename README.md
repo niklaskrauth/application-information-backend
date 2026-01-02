@@ -72,7 +72,15 @@ HUGGINGFACE_API_TOKEN=
 
 **Initial Setup:**
 
-On first run, the models will be automatically downloaded from Hugging Face (approximately 15-20GB total). This happens once, and the models are cached locally in `~/.cache/huggingface/`.
+**Important:** Models are now downloaded automatically when the application starts, not when the first request is made. On the first startup, the application will download models from Hugging Face (approximately 15-20GB total) and cache them locally in `~/.cache/huggingface/`. Subsequent startups will use the cached models and start much faster.
+
+The startup process will:
+1. Download the text generation model if not cached (first run only)
+2. Download the embedding model if not cached (first run only)
+3. Load both models into memory
+4. Make them ready for immediate use when requests arrive
+
+This ensures fast response times for all requests after startup.
 
 **Optional: Hugging Face API Token**
 
@@ -155,11 +163,19 @@ id  | location         | website                        | websiteToJobs
 
 ### Starting the Server
 
+**Important:** On first startup, the server will download AI models (~15-20GB). This can take 10-30 minutes depending on your internet connection. Subsequent startups are much faster as models are cached locally.
+
 Run the FastAPI server:
 
 ```bash
 python -m uvicorn app.main:app --reload
 ```
+
+Watch the startup logs to monitor model download progress:
+- "Downloading model if not cached locally..." - Model download in progress
+- "Model downloaded and cached successfully" - Text generation model ready
+- "Embedding model downloaded and cached successfully" - Embedding model ready
+- "Models are now cached locally and available for offline use" - Startup complete
 
 Or use the convenience scripts:
 
@@ -404,7 +420,10 @@ flake8 app/
   - **Web Scraping**: Be respectful of rate limits when scraping websites
 - **Processing Time**: 
   - Each company entry requires scraping and AI analysis
-  - **Hugging Face**: First run downloads models (~15-20GB, one-time), then 10-60 seconds per company depending on hardware
+  - **Hugging Face**: 
+    - First startup downloads models (~15-20GB, one-time, 10-30 minutes)
+    - Subsequent startups are fast (1-2 minutes to load cached models)
+    - Processing: 10-60 seconds per company depending on hardware
 - **API Costs**: 
   - **Hugging Face**: Completely free, all processing is local, no API costs
 - **Hardware Requirements**:
@@ -418,12 +437,14 @@ flake8 app/
 
 ### Common Issues
 
-1. **"Failed to initialize Hugging Face"**
+1. **"Failed to initialize Hugging Face" or slow startup**
+   - **First startup is slow**: Models are downloaded on first startup (~15-20GB, 10-30 minutes)
    - Ensure you have at least 8GB RAM available (16GB recommended)
-   - Check internet connection for initial model download
+   - Check internet connection for initial model download (required only on first startup)
    - Models are downloaded to `~/.cache/huggingface/` - ensure enough disk space (~20GB)
    - For GPU acceleration, ensure PyTorch with CUDA support is installed
    - Check error logs for specific model loading issues
+   - **Subsequent startups are fast** (1-2 minutes) as models are cached locally
 
 2. **"Hugging Face provider requires langchain-huggingface"**
    - Install the Hugging Face dependencies: `pip install langchain-huggingface transformers sentence-transformers`
@@ -440,17 +461,19 @@ flake8 app/
 
 5. **Slow processing**
    - **For Hugging Face**: 
-     - First run will download models (~15-20GB), subsequent runs will be faster
+     - First startup downloads models (~15-20GB, 10-30 minutes) - this is normal
+     - Subsequent startups are fast (1-2 minutes) using cached models
      - Ensure adequate RAM available (16GB recommended)
      - Consider using GPU acceleration by installing PyTorch with CUDA: `pip install torch --index-url https://download.pytorch.org/whl/cu118`
      - You can use smaller/faster models by changing HUGGINGFACE_MODEL in `.env`
    - Consider reducing the number of companies in the Excel file for testing
 
 6. **Model download issues**
-   - If model download fails, check your internet connection
+   - If model download fails during startup, check your internet connection
    - Ensure `~/.cache/huggingface/` directory has write permissions
-   - Try clearing the cache: `rm -rf ~/.cache/huggingface/` and retry
+   - Try clearing the cache: `rm -rf ~/.cache/huggingface/` and restart the application
    - For gated models, ensure HUGGINGFACE_API_TOKEN is set correctly
+   - Check startup logs for detailed error messages
 
 ## License
 

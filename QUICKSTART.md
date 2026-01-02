@@ -38,7 +38,7 @@ HUGGINGFACE_EMBEDDING_MODEL=deutsche-telekom/gbert-large-paraphrase-cosine
 HUGGINGFACE_API_TOKEN=
 ```
 
-**Note:** Models will be automatically downloaded on first run (~15-20GB total). This happens once and models are cached locally.
+**Note:** Models will be automatically downloaded when the application starts (~15-20GB total, 10-30 minutes on first startup). This happens once and models are cached locally. Subsequent startups are fast (1-2 minutes).
 
 **Optional:** If you want GPU acceleration for faster processing:
 ```bash
@@ -53,6 +53,11 @@ python create_sample_excel.py
 ```
 
 ## Step 4: Start the Server
+
+**Important:** First startup takes 10-30 minutes as models are downloaded. Watch the logs to see progress:
+- "Downloading model if not cached locally..." - Download in progress
+- "Model downloaded and cached successfully" - Model ready
+- "Models are now cached locally and available for offline use" - Startup complete
 
 ```bash
 # Run the server
