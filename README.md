@@ -1,27 +1,28 @@
 # Application Information Backend
 
-A Python backend using LangChain with Ollama for extracting job information from company websites. The system reads company locations from an Excel sheet, scrapes their job pages, and uses AI to extract structured job information for frontend consumption.
+A Python backend using LangChain with Hugging Face for extracting job information from company websites. The system reads company locations from an Excel sheet, scrapes their job pages, and uses AI to extract structured job information for frontend consumption.
 
-**Uses Ollama AI models (remote or local) - no API keys needed, no rate limits!**
+**Uses powerful German language models from Hugging Face - optimized for German text processing, no API keys needed!**
 
 ## Features
 
 - **Excel Integration**: Read company data from Excel sheets
 - **Web Scraping**: Automatically scrape company job pages
-- **AI Job Extraction**: Use LangChain with Ollama (LLaMA 3.1/3.2 or other models) - Remote or local AI, no API keys needed, no rate limits
+- **AI Job Extraction**: Use LangChain with Hugging Face (German-optimized models) - Local AI processing, no API keys needed, no rate limits
 - **REST API**: FastAPI-based REST API with single GET endpoint
 - **Structured JSON Output**: Returns job data matching frontend TypeScript interfaces
 
 ## Architecture
 
 ```
-Excel File (data/Landratsamt.xlsx) → Excel Reader → Website Scraper → AI Agent (Ollama) → Table JSON Response
+Excel File (data/Landratsamt.xlsx) → Excel Reader → Website Scraper → AI Agent (Hugging Face) → Table JSON Response
 ```
 
 ## Requirements
 
 - Python 3.8+
-- Access to Ollama AI server (remote server configured by default, or install locally - no API key needed)
+- At least 8GB RAM (16GB recommended for optimal performance)
+- Internet connection for initial model download (models are cached locally after first download)
 
 ## Installation
 
@@ -53,51 +54,50 @@ Copy the example environment file and update with your settings:
 cp .env.example .env
 ```
 
-**Configure Ollama settings:**
+**Configure Hugging Face settings:**
 
-The application is configured to use a remote Ollama server by default. The default configuration in `.env` points to:
+The application uses powerful German language models from Hugging Face. The default configuration uses:
 
 ```
-OLLAMA_BASE_URL=http://45.93.251.180:11434
-OLLAMA_MODEL=llama3.1:8b
+HUGGINGFACE_MODEL=Veronika-T/mistral-german-7b
+HUGGINGFACE_EMBEDDING_MODEL=deutsche-telekom/gbert-large-paraphrase-cosine
+HUGGINGFACE_API_TOKEN=
 ```
 
-If you want to use a local Ollama installation instead:
+**About the German models:**
 
-**Step 1: Install Ollama locally**
+1. **Veronika-T/mistral-german-7b**: A powerful German-optimized text generation model specifically trained for German language understanding and generation. Perfect for analyzing German job postings.
 
-Visit https://ollama.ai and download Ollama for your operating system:
-- **macOS**: Download the .dmg file and install
-- **Linux**: Run `curl -fsSL https://ollama.ai/install.sh | sh`
-- **Windows**: Download the installer from the website
+2. **deutsche-telekom/gbert-large-paraphrase-cosine**: A German BERT model optimized for semantic similarity and embeddings, ideal for understanding context in German text.
 
-**Step 2: Start Ollama and pull a model**
+**Initial Setup:**
 
-```bash
-# Start Ollama (if not already running)
-ollama serve
+On first run, the models will be automatically downloaded from Hugging Face (approximately 15-20GB total). This happens once, and the models are cached locally in `~/.cache/huggingface/`.
 
-# In a new terminal, pull the recommended model (8B parameter version)
-ollama pull llama3.1:8b
+**Optional: Hugging Face API Token**
 
-# Or for better quality (requires more RAM/VRAM):
-ollama pull llama3.1:70b
-```
+Most models don't require an API token, but if you want to use gated models:
 
-**Step 3: Configure the application for local use**
+1. Create a free account at https://huggingface.co
+2. Get your token from https://huggingface.co/settings/tokens
+3. Add it to `.env`:
+   ```
+   HUGGINGFACE_API_TOKEN=hf_your_token_here
+   ```
 
-Edit `.env` and configure Ollama to use localhost:
-```
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1:8b
-```
+**Alternative German Models:**
 
-**Available Ollama models:**
-- `llama3.1:8b` - Recommended, good balance of speed and quality (8GB RAM required)
-- `llama3.1:70b` - Best quality, slower (40GB RAM required)
-- `llama3.2:8b` - Latest version, similar to 3.1
-- `mistral:7b` - Alternative, good performance
-- See more at: https://ollama.ai/library
+You can configure different German models by editing `.env`:
+
+- **Text Generation Models**:
+  - `Veronika-T/mistral-german-7b` (default, recommended)
+  - `LeoLM/leo-hessianai-7b` (alternative German model)
+  - `VAGOsolutions/SauerkrautLM-7b-HerO` (another German-optimized model)
+
+- **Embedding Models**:
+  - `deutsche-telekom/gbert-large-paraphrase-cosine` (default, recommended)
+  - `sentence-transformers/paraphrase-multilingual-mpnet-base-v2` (multilingual fallback)
+  - `T-Systems-onsite/german-roberta-sentence-transformer-v2` (alternative German embeddings)
 
 ### 5. Create sample Excel file
 
@@ -191,7 +191,7 @@ Process all companies from the Excel file and extract job information.
 This endpoint:
 - Reads all company entries from `data/Landratsamt.xlsx`
 - Scrapes each company's jobs page (websiteToJobs or website)
-- Uses Ollama AI to analyze and extract job details
+- Uses Hugging Face AI models to analyze and extract job details
 - **Extracts ALL jobs found on each company's page** (multiple jobs per company)
 - Returns structured job data matching the frontend interface
 
@@ -298,7 +298,7 @@ Check if the API is running and AI provider is configured.
 ```json
 {
   "status": "healthy",
-  "ai_provider": "ollama",
+  "ai_provider": "huggingface",
   "ai_configured": true
 }
 ```
@@ -323,7 +323,7 @@ application-information-backend/
 │   ├── services/
 │   │   ├── excel_reader.py     # Excel file reading service
 │   │   ├── web_scraper.py      # Website scraping service
-│   │   ├── ai_agent.py         # AI agent for job extraction (Ollama)
+│   │   ├── ai_agent.py         # AI agent for job extraction (Hugging Face)
 │   │   └── processor.py        # Job processing orchestration
 │   └── utils/
 ├── src/
@@ -341,7 +341,7 @@ application-information-backend/
 
 1. **Excel Reading**: The system reads company entries from `data/Landratsamt.xlsx` using `ExcelReader`
 2. **Web Scraping**: For each entry, `WebScraper` visits the jobs page (websiteToJobs or website) and extracts text content
-3. **AI Analysis**: `AIAgent` uses LangChain with Ollama to:
+3. **AI Analysis**: `AIAgent` uses LangChain with Hugging Face to:
    - Analyze job page content
    - Extract structured job information for **ALL jobs found** (title, salary, home office, etc.)
    - Determine if positions are available
@@ -353,9 +353,10 @@ application-information-backend/
 All configuration is managed through environment variables (`.env` file):
 
 ```bash
-# Ollama Configuration (remote server by default)
-OLLAMA_BASE_URL=http://45.93.251.180:11434
-OLLAMA_MODEL=llama3.1:8b
+# Hugging Face Configuration
+HUGGINGFACE_MODEL=Veronika-T/mistral-german-7b
+HUGGINGFACE_EMBEDDING_MODEL=deutsche-telekom/gbert-large-paraphrase-cosine
+HUGGINGFACE_API_TOKEN=
 
 # Application Configuration
 APP_HOST=0.0.0.0
@@ -399,31 +400,33 @@ flake8 app/
 ## Limitations and Considerations
 
 - **Rate Limiting**: 
-  - **Ollama**: No rate limits, processing speed depends on server/hardware
+  - **Hugging Face**: No rate limits, all processing is local
   - **Web Scraping**: Be respectful of rate limits when scraping websites
 - **Processing Time**: 
   - Each company entry requires scraping and AI analysis
-  - **Ollama**: Varies by server/hardware (8B model: 10-30 seconds, 70B model: 30-120 seconds per company)
+  - **Hugging Face**: First run downloads models (~15-20GB, one-time), then 10-60 seconds per company depending on hardware
 - **API Costs**: 
-  - **Ollama**: Completely free, remote or local, no API costs
-- **Hardware Requirements (for local Ollama)**:
-  - 8B models: 8GB RAM minimum, 16GB recommended
-  - 70B models: 40GB RAM minimum, GPU recommended for better performance
+  - **Hugging Face**: Completely free, all processing is local, no API costs
+- **Hardware Requirements**:
+  - 8GB RAM minimum for basic operation
+  - 16GB RAM recommended for optimal performance
+  - GPU optional but recommended for faster inference
+  - ~20GB disk space for model storage
 - **Content Accuracy**: AI extraction depends on the structure and clarity of the job page content
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **"Failed to initialize Ollama"**
-   - If using remote server: Check that OLLAMA_BASE_URL in `.env` is correct (default: `http://45.93.251.180:11434`)
-   - If using local Ollama: Make sure Ollama is installed and running: `ollama serve`
-   - Verify the model is downloaded: `ollama list`
-   - If not downloaded, pull it: `ollama pull llama3.1:8b`
-   - Check that OLLAMA_BASE_URL in `.env` matches where Ollama is running
+1. **"Failed to initialize Hugging Face"**
+   - Ensure you have at least 8GB RAM available (16GB recommended)
+   - Check internet connection for initial model download
+   - Models are downloaded to `~/.cache/huggingface/` - ensure enough disk space (~20GB)
+   - For GPU acceleration, ensure PyTorch with CUDA support is installed
+   - Check error logs for specific model loading issues
 
-2. **"Ollama provider requires langchain-ollama"**
-   - Install the Ollama dependency: `pip install langchain-ollama`
+2. **"Hugging Face provider requires langchain-huggingface"**
+   - Install the Hugging Face dependencies: `pip install langchain-huggingface transformers sentence-transformers`
    - Or reinstall all dependencies: `pip install -r requirements.txt`
 
 3. **"Excel file not found"**
@@ -436,11 +439,18 @@ flake8 app/
    - Activate your virtual environment
 
 5. **Slow processing**
-   - **For Ollama**: 
-     - Use a smaller model (e.g., `llama3.1:8b` instead of `llama3.1:70b`)
-     - If using local Ollama: Ensure adequate RAM/VRAM available and consider using GPU acceleration
-     - If using remote server: Processing speed depends on server capacity
+   - **For Hugging Face**: 
+     - First run will download models (~15-20GB), subsequent runs will be faster
+     - Ensure adequate RAM available (16GB recommended)
+     - Consider using GPU acceleration by installing PyTorch with CUDA: `pip install torch --index-url https://download.pytorch.org/whl/cu118`
+     - You can use smaller/faster models by changing HUGGINGFACE_MODEL in `.env`
    - Consider reducing the number of companies in the Excel file for testing
+
+6. **Model download issues**
+   - If model download fails, check your internet connection
+   - Ensure `~/.cache/huggingface/` directory has write permissions
+   - Try clearing the cache: `rm -rf ~/.cache/huggingface/` and retry
+   - For gated models, ensure HUGGINGFACE_API_TOKEN is set correctly
 
 ## License
 

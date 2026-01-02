@@ -45,13 +45,13 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    # For Ollama, we assume it's configured if the provider is set
+    # For Hugging Face, we assume it's configured if the provider is set
     # The actual connection check happens when AIAgent is initialized
     ai_configured = True
     
     return {
         "status": "healthy",
-        "ai_provider": "ollama",
+        "ai_provider": "huggingface",
         "ai_configured": ai_configured
     }
 
