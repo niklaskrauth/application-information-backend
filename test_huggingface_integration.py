@@ -27,7 +27,7 @@ def test_huggingface_config_defaults():
 
 
 def test_ai_agent_with_huggingface_provider():
-    """Test AIAgent initialization with Hugging Face provider (without langchain-huggingface installed)"""
+    """Test AIAgent initialization with Hugging Face provider"""
     # Import after environment setup
     from app.services.ai_agent import AIAgent
     

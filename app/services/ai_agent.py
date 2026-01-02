@@ -126,16 +126,31 @@ class AIAgent:
             
             # Initialize German embedding model (using same device strategy for consistency)
             logger.info(f"Initializing German embedding model: {settings.HUGGINGFACE_EMBEDDING_MODEL}")
+            # Check if CUDA is available before trying to use GPU
             try:
-                self.embeddings = HuggingFaceEmbeddings(
-                    model_name=settings.HUGGINGFACE_EMBEDDING_MODEL,
-                    model_kwargs={'device': 'cuda'},
-                    encode_kwargs={'normalize_embeddings': True}
-                )
-                logger.info("Embedding model loaded with GPU acceleration")
-            except (RuntimeError, OSError) as e:
-                logger.warning(f"Failed to load embeddings with GPU: {str(e)}")
-                logger.info("Falling back to CPU for embeddings")
+                import torch
+                use_gpu = torch.cuda.is_available()
+            except ImportError:
+                use_gpu = False
+            
+            if use_gpu:
+                try:
+                    self.embeddings = HuggingFaceEmbeddings(
+                        model_name=settings.HUGGINGFACE_EMBEDDING_MODEL,
+                        model_kwargs={'device': 'cuda'},
+                        encode_kwargs={'normalize_embeddings': True}
+                    )
+                    logger.info("Embedding model loaded with GPU acceleration")
+                except (RuntimeError, OSError) as e:
+                    logger.warning(f"Failed to load embeddings with GPU: {str(e)}")
+                    logger.info("Falling back to CPU for embeddings")
+                    self.embeddings = HuggingFaceEmbeddings(
+                        model_name=settings.HUGGINGFACE_EMBEDDING_MODEL,
+                        model_kwargs={'device': 'cpu'},
+                        encode_kwargs={'normalize_embeddings': True}
+                    )
+            else:
+                logger.info("GPU not available, using CPU for embeddings")
                 self.embeddings = HuggingFaceEmbeddings(
                     model_name=settings.HUGGINGFACE_EMBEDDING_MODEL,
                     model_kwargs={'device': 'cpu'},
