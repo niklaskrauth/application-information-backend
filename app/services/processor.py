@@ -16,7 +16,7 @@ class JobProcessor:
     # Configuration constants
     MAX_LINKED_PAGE_CONTENT_LENGTH = 3000  # Max characters from linked job pages
     
-    def __init__(self, excel_path: str, timeout: int = 30, ai_agent: Optional[AIAgent] = None):
+    def __init__(self, excel_path: str, ai_agent: Optional[AIAgent] = None, timeout: int = 30):
         self.excel_reader = ExcelReader(excel_path)
         self.web_scraper = WebScraper(timeout=timeout)
         self.content_extractor = ContentExtractor(timeout=timeout)

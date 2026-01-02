@@ -123,8 +123,8 @@ async def _process_jobs() -> Table:
     # Use the global ai_agent instance that was initialized at startup
     processor = JobProcessor(
         excel_path=settings.EXCEL_FILE_PATH,
-        timeout=settings.REQUEST_TIMEOUT,
-        ai_agent=ai_agent
+        ai_agent=ai_agent,
+        timeout=settings.REQUEST_TIMEOUT
     )
     
     # Collect all rows from incremental processing
